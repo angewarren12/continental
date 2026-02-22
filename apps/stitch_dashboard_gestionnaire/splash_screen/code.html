@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Le Continental - Premium Restaurant Management</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#bd0f3b",
+              "background-light": "#f8f6f6",
+              "background-dark": "#221015",
+            },
+            fontFamily: {
+              "display": ["Work Sans", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            font-family: 'Work Sans', sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 antialiased overflow-hidden">
+<div class="relative flex h-screen w-full flex-col items-center justify-center p-6">
+<!-- Background Accent -->
+<div class="absolute inset-0 z-0 overflow-hidden">
+<div class="absolute -top-24 -left-24 w-96 h-96 bg-primary/5 rounded-full blur-3xl"></div>
+<div class="absolute -bottom-24 -right-24 w-96 h-96 bg-primary/5 rounded-full blur-3xl"></div>
+</div>
+<!-- Main Content Container -->
+<div class="relative z-10 flex flex-col items-center justify-between h-full w-full max-w-md py-12">
+<!-- Empty space for top balance -->
+<div class="h-12"></div>
+<!-- Central Branding Section -->
+<div class="flex flex-col items-center text-center">
+<!-- Logo Symbol -->
+<div class="mb-8 p-6 rounded-xl bg-primary/10 border border-primary/20">
+<span class="material-symbols-outlined text-primary text-7xl font-light">
+                        restaurant_menu
+                    </span>
+</div>
+<!-- Brand Name -->
+<h1 class="text-slate-100 font-display text-4xl font-bold tracking-tight mb-2">
+                    Le <span class="text-primary">Continental</span>
+</h1>
+<!-- Tagline -->
+<p class="text-slate-400 font-display text-sm tracking-[0.3em] uppercase font-light">
+                    Art of Management
+                </p>
+</div>
+<!-- Bottom Loading Section -->
+<div class="w-full max-w-xs space-y-6">
+<!-- Status Text -->
+<div class="flex justify-between items-end">
+<div class="space-y-1">
+<p class="text-primary text-xs font-semibold uppercase tracking-widest">Status</p>
+<p class="text-slate-300 text-sm font-medium">Initializing systems...</p>
+</div>
+<p class="text-slate-500 text-xs font-display">v2.4.0</p>
+</div>
+<!-- Loading Bar Component -->
+<div class="relative h-1 w-full bg-primary/10 rounded-full overflow-hidden">
+<div class="absolute top-0 left-0 h-full bg-primary rounded-full transition-all duration-700 ease-out" style="width: 65%;"></div>
+</div>
+<!-- Footer/Sub-headline -->
+<div class="pt-4 text-center">
+<p class="text-slate-500 text-[10px] font-medium uppercase tracking-[0.2em]">
+                        Exclusive Professional Access
+                    </p>
+</div>
+</div>
+</div>
+<!-- Decorative Pattern (Subtle) -->
+<div class="absolute bottom-0 left-0 w-full opacity-10 pointer-events-none">
+<div class="h-40 w-full bg-gradient-to-t from-primary/20 to-transparent"></div>
+</div>
+</div>
+<!-- Hidden Hero Placeholder as requested by component structure -->
+<div class="hidden">
+<div class="w-full bg-center bg-no-repeat bg-cover min-h-80" data-alt="Luxurious dark restaurant interior with fine dining set up" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDBES7HyFXbD6FZFZlZkYMAtfACh9ONj94QhKwiPQz6DFz_18odH0SJU7ftuT-QN81OirmzT2tV6m46t_eaGQ9vGq7OtRFSnaAa7Fix8r4Nv1DgrOKewW1bAnV0dM5P57xMcite5d4oru_D0y1WJNBVxkA9p_ozqskoIlg_pSed5x0trLPN5DGO7WzWk8fzT9jIKGHp7vQ3DT-eFOzHAnd3Qvz3CxB2kqijNq6AcgawJxmmMDxQv_Wp1eu5Ns5QpBGfyRN9B78juxbf");'>
+</div>
+</div>
+</body></html>

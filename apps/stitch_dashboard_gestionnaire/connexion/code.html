@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Le Continental - Membership Login</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#bd0f3b",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#12080a",
+                    },
+                    fontFamily: {
+                        "display": ["Work Sans", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Work Sans', sans-serif;
+        }
+        .luxury-gradient {
+            background: radial-gradient(circle at top right, rgba(189, 15, 59, 0.08), transparent),
+                        radial-gradient(circle at bottom left, rgba(189, 15, 59, 0.05), transparent);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-display">
+<!-- Header / Branding Area -->
+<header class="w-full flex items-center justify-between p-6">
+<button class="text-slate-900 dark:text-slate-100 hover:opacity-70 transition-opacity">
+<span class="material-symbols-outlined">close</span>
+</button>
+<div class="flex flex-col items-center">
+<span class="text-xs uppercase tracking-[0.3em] font-light text-primary mb-1">The</span>
+<h1 class="text-xl font-bold tracking-[0.1em] uppercase">Continental</h1>
+</div>
+<div class="w-6"></div> <!-- Spacer for symmetry -->
+</header>
+<main class="flex-1 flex flex-col items-center justify-center px-6 luxury-gradient">
+<!-- Welcome Hero -->
+<div class="w-full max-w-md text-center mb-10">
+<h2 class="text-4xl font-bold tracking-tight mb-3">Welcome back</h2>
+<p class="text-slate-500 dark:text-slate-400 font-light text-lg">Membership Login</p>
+</div>
+<!-- Login Form -->
+<div class="w-full max-w-md space-y-6">
+<div class="space-y-4">
+<!-- Email Input -->
+<div class="group">
+<label class="block text-xs uppercase tracking-widest text-slate-500 dark:text-slate-400 font-medium mb-2 pl-1">Email Address</label>
+<div class="relative">
+<input class="w-full bg-slate-100 dark:bg-primary/5 border border-slate-200 dark:border-primary/20 rounded-lg py-4 px-5 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600" placeholder="membership@lecontinental.com" type="email"/>
+</div>
+</div>
+<!-- Password Input -->
+<div class="group">
+<div class="flex justify-between items-center mb-2 pl-1">
+<label class="text-xs uppercase tracking-widest text-slate-500 dark:text-slate-400 font-medium">Password</label>
+<a class="text-[10px] uppercase tracking-widest text-primary hover:underline font-bold" href="#">Forgot?</a>
+</div>
+<div class="relative">
+<input class="w-full bg-slate-100 dark:bg-primary/5 border border-slate-200 dark:border-primary/20 rounded-lg py-4 px-5 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600" placeholder="••••••••" type="password"/>
+<button class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
+<span class="material-symbols-outlined text-xl">visibility_off</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Primary Action -->
+<button class="w-full bg-primary hover:bg-primary/90 text-white font-semibold py-4 rounded-lg shadow-lg shadow-primary/20 transition-all uppercase tracking-widest text-sm mt-4">
+                Access Portal
+            </button>
+<!-- Register Link -->
+<div class="text-center mt-8">
+<p class="text-sm text-slate-500 dark:text-slate-400">
+                    Not a member yet? 
+                    <a class="text-primary font-semibold hover:underline ml-1" href="#">Request Invitation</a>
+</p>
+</div>
+</div>
+</main>
+<!-- Subtle Background Elements -->
+<div class="fixed inset-0 pointer-events-none z-[-1] opacity-20 overflow-hidden">
+<div class="absolute -top-[10%] -right-[10%] w-[60%] h-[60%] rounded-full bg-primary/10 blur-[120px]"></div>
+<div class="absolute -bottom-[10%] -left-[10%] w-[50%] h-[50%] rounded-full bg-primary/5 blur-[100px]"></div>
+</div>
+<!-- Bottom Navigation Bar (Optional Contextual Footer) -->
+<nav class="border-t border-slate-200 dark:border-primary/10 bg-white/50 dark:bg-background-dark/80 backdrop-blur-md px-6 py-4">
+<div class="flex items-center justify-around max-w-md mx-auto">
+<a class="flex flex-col items-center gap-1 text-slate-400 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="text-[10px] uppercase tracking-tighter">Home</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">search</span>
+<span class="text-[10px] uppercase tracking-tighter">Explore</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">calendar_today</span>
+<span class="text-[10px] uppercase tracking-tighter">Events</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-primary" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1">person</span>
+<span class="text-[10px] uppercase tracking-tighter font-bold">Profile</span>
+</a>
+</div>
+</nav>
+</body></html>

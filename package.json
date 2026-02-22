@@ -1,0 +1,31 @@
+{
+  "name": "continental-restaurant",
+  "version": "1.0.0",
+  "description": "Application mobile de gestion du restaurant Le Continental",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "shared"
+  ],
+  "scripts": {
+    "dev:manager": "cd apps/manager && npm run dev",
+    "dev:client": "cd apps/client && npm run dev",
+    "build:manager": "cd apps/manager && npm run build",
+    "build:client": "cd apps/client && npm run build",
+    "build:shared": "cd shared && npm run build",
+    "install:all": "npm install && cd apps/manager && npm install && cd ../client && npm install && cd ../../shared && npm install",
+    "firebase": "firebase",
+    "firebase:login": "npx firebase login",
+    "firebase:deploy:rules": "npx firebase deploy --only firestore:rules",
+    "firebase:deploy:indexes": "npx firebase deploy --only firestore:indexes",
+    "firebase:deploy:all": "npx firebase deploy --only firestore"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "firebase-tools": "^13.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}

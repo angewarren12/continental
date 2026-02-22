@@ -1,0 +1,13 @@
+{
+  "appId": "com.continental.client",
+  "appName": "Le Continental",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    }
+  }
+}

@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="fr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Le Continental - Onboarding</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#bd0f3b",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#221015",
+                    },
+                    fontFamily: {
+                        "display": ["Work Sans"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Work Sans', sans-serif;
+        }
+        .glass-effect {
+            background: rgba(34, 16, 21, 0.8);
+            backdrop-filter: blur(8px);
+        }
+        .image-overlay {
+            background: linear-gradient(to bottom, transparent 0%, rgba(34, 16, 21, 0.4) 50%, rgba(34, 16, 21, 1) 100%);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display">
+<div class="relative flex min-h-screen w-full flex-col overflow-x-hidden">
+<!-- Top Bar / Logo -->
+<div class="absolute top-0 left-0 right-0 z-20 flex items-center justify-between p-6">
+<div class="flex items-center gap-2">
+<div class="bg-primary p-1.5 rounded">
+<span class="material-symbols-outlined text-white text-2xl">restaurant_menu</span>
+</div>
+<h2 class="text-white text-xl font-bold tracking-tight uppercase">Le Continental</h2>
+</div>
+<button class="text-slate-300 text-sm font-medium hover:text-white transition-colors">Passer</button>
+</div>
+<!-- Slider Content -->
+<div class="relative flex-1 flex flex-col justify-end">
+<!-- Background Image with Overlay -->
+<div class="absolute inset-0 z-0">
+<div class="h-full w-full bg-cover bg-center" data-alt="Intérieur d'un restaurant de luxe sombre et élégant" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBtPzc4kVUVwRsXQmUFVw-T5q53BWkD4kebvcIAETgXmvaHBfMCZerGnwSe5RFrgEhBPTxfMAxP0HBjGECC2U3T31Ey0Bwlf0fAiS22I-3TwzR6ys73zSG8ZaGv2qFyYAv8aT4xmvySRqxr7FihyZFJNSepq3bKeCx7bvtrsNSsIpHmyyIcBhKWDG31J03Kgf45ENz9fbP28Tp8rPnAHwOlNGu5_GJf4f53xlYUuLBrf7H5Z8yvXWrV8tVvF-TZblEoJ8pjkyeET_rN');">
+</div>
+<div class="absolute inset-0 image-overlay"></div>
+</div>
+<!-- Content Area -->
+<div class="relative z-10 px-6 pb-12 pt-20">
+<!-- Welcome Text -->
+<div class="space-y-4 max-w-lg">
+<h1 class="text-white text-4xl md:text-5xl font-bold leading-tight tracking-tight">
+                        Bienvenue au <span class="text-primary">Continental</span>
+</h1>
+<p class="text-slate-300 text-lg md:text-xl leading-relaxed font-light">
+                        Gérez vos commandes et suivez vos stocks en toute simplicité avec notre interface professionnelle.
+                    </p>
+</div>
+<!-- Features Preview (Mini Cards) -->
+<div class="grid grid-cols-2 gap-4 mt-8">
+<div class="bg-background-dark/40 border border-primary/20 p-4 rounded-lg backdrop-blur-sm">
+<span class="material-symbols-outlined text-primary mb-2">inventory_2</span>
+<h3 class="text-white text-sm font-semibold">Stocks</h3>
+<p class="text-slate-400 text-xs">Suivi en temps réel</p>
+</div>
+<div class="bg-background-dark/40 border border-primary/20 p-4 rounded-lg backdrop-blur-sm">
+<span class="material-symbols-outlined text-primary mb-2">receipt_long</span>
+<h3 class="text-white text-sm font-semibold">Commandes</h3>
+<p class="text-slate-400 text-xs">Gestion centralisée</p>
+</div>
+</div>
+<!-- Slider Pagination Indicators -->
+<div class="flex items-center gap-2 mt-10 mb-8">
+<div class="h-1.5 w-8 rounded-full bg-primary"></div>
+<div class="h-1.5 w-2 rounded-full bg-slate-600"></div>
+<div class="h-1.5 w-2 rounded-full bg-slate-600"></div>
+</div>
+<!-- Action Buttons -->
+<div class="flex flex-col gap-4">
+<button class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-4 rounded-lg transition-all shadow-lg flex items-center justify-center gap-2">
+                        Commencer l'expérience
+                        <span class="material-symbols-outlined">arrow_forward</span>
+</button>
+<button class="w-full bg-transparent border border-slate-600 hover:border-slate-400 text-white font-medium py-4 rounded-lg transition-all">
+                        Se connecter
+                    </button>
+</div>
+</div>
+</div>
+<!-- Bottom Navigation Bar (Modified for App Feel) -->
+<div class="flex gap-2 border-t border-primary/10 bg-background-dark px-4 pb-6 pt-3 z-20">
+<a class="flex flex-1 flex-col items-center justify-center gap-1 text-primary" href="#">
+<div class="flex h-8 items-center justify-center">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1">home</span>
+</div>
+</a>
+<a class="flex flex-1 flex-col items-center justify-center gap-1 text-slate-500" href="#">
+<div class="flex h-8 items-center justify-center">
+<span class="material-symbols-outlined">receipt</span>
+</div>
+</a>
+<a class="flex flex-1 flex-col items-center justify-center gap-1 text-slate-500" href="#">
+<div class="flex h-8 items-center justify-center">
+<span class="material-symbols-outlined">warehouse</span>
+</div>
+</a>
+<a class="flex flex-1 flex-col items-center justify-center gap-1 text-slate-500" href="#">
+<div class="flex h-8 items-center justify-center">
+<span class="material-symbols-outlined">person</span>
+</div>
+</a>
+</div>
+</div>
+</body></html>

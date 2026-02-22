@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Le Continental - Registration</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#bd0f3b",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#12080a",
+                        "surface-dark": "#1d0e11",
+                        "border-dark": "#3d1f25",
+                    },
+                    fontFamily: {
+                        "display": ["Work Sans", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen">
+<div class="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden">
+<!-- Top Navigation -->
+<nav class="flex items-center justify-between p-4 md:px-8">
+<button class="text-slate-900 dark:text-slate-100 flex size-10 items-center justify-center hover:bg-primary/10 rounded-full transition-colors">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h2 class="text-slate-900 dark:text-slate-100 text-lg font-bold tracking-widest uppercase">Le Continental</h2>
+<div class="size-10"></div> <!-- Spacer for centering title -->
+</nav>
+<main class="flex-1 flex flex-col items-center px-4 py-8 max-w-xl mx-auto w-full">
+<!-- Hero Branding Section -->
+<div class="w-full mb-8 text-center">
+<div class="relative w-full h-48 md:h-64 overflow-hidden rounded-xl mb-6 group">
+<div class="absolute inset-0 bg-gradient-to-t from-background-dark via-transparent to-transparent z-10"></div>
+<img alt="Luxury hotel lobby" class="w-full h-full object-cover grayscale-[20%] group-hover:scale-105 transition-transform duration-700" data-alt="Luxurious golden hotel lobby with elegant chandeliers" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBohI6oRM6mBGdUC-zT4fP1zUy0BKTUI4mATZdpGDkR7wFKG8Na8Kpf4FkaFz_UeY_SN8ZqFbLCbzGKgrg4sPtxJfPfpiKdVi9zlVqC-7E6YYWE_VUhFhNwxZa9Cw0GJfkSgQn626lr4qbGLwvb3oH5RUuNjQ8MLxGsBRT7sDgREvr8Ti227NVpEygkBmjUji2_mObcaNxQJBJQyZHtYosG0Xcx0CvefKKng6AqlI0xmGEY1kKITCnbvuUr72kLxSvI6q0Te-M3y1Nm"/>
+<div class="absolute bottom-4 left-0 right-0 z-20 px-6">
+<h1 class="text-white text-3xl md:text-4xl font-bold leading-tight tracking-tight">Create Your Legacy</h1>
+<p class="text-slate-300 text-sm md:text-base mt-2 font-light">Experience the pinnacle of luxury and service.</p>
+</div>
+</div>
+</div>
+<!-- Registration Form -->
+<form class="w-full space-y-5">
+<!-- Full Name -->
+<div class="space-y-2">
+<label class="block text-xs font-semibold uppercase tracking-widest text-primary">Full Name</label>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-primary transition-colors">person</span>
+<input class="w-full bg-slate-50 dark:bg-surface-dark border border-slate-200 dark:border-border-dark focus:border-primary dark:focus:border-primary focus:ring-1 focus:ring-primary rounded-lg h-14 pl-12 pr-4 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600 transition-all outline-none" placeholder="Enter your full name" type="text"/>
+</div>
+</div>
+<!-- Email Address -->
+<div class="space-y-2">
+<label class="block text-xs font-semibold uppercase tracking-widest text-primary">Email Address</label>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-primary transition-colors">mail</span>
+<input class="w-full bg-slate-50 dark:bg-surface-dark border border-slate-200 dark:border-border-dark focus:border-primary dark:focus:border-primary focus:ring-1 focus:ring-primary rounded-lg h-14 pl-12 pr-4 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600 transition-all outline-none" placeholder="email@lecontinental.com" type="email"/>
+</div>
+</div>
+<!-- Phone Number -->
+<div class="space-y-2">
+<label class="block text-xs font-semibold uppercase tracking-widest text-primary">Mobile Number</label>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-primary transition-colors">call</span>
+<input class="w-full bg-slate-50 dark:bg-surface-dark border border-slate-200 dark:border-border-dark focus:border-primary dark:focus:border-primary focus:ring-1 focus:ring-primary rounded-lg h-14 pl-12 pr-4 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600 transition-all outline-none" placeholder="+1 (555) 000-0000" type="tel"/>
+</div>
+</div>
+<!-- Password -->
+<div class="space-y-2">
+<label class="block text-xs font-semibold uppercase tracking-widest text-primary">Password</label>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-primary transition-colors">lock</span>
+<input class="w-full bg-slate-50 dark:bg-surface-dark border border-slate-200 dark:border-border-dark focus:border-primary dark:focus:border-primary focus:ring-1 focus:ring-primary rounded-lg h-14 pl-12 pr-12 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600 transition-all outline-none" placeholder="••••••••" type="password"/>
+<button class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-primary transition-colors" type="button">
+<span class="material-symbols-outlined">visibility</span>
+</button>
+</div>
+</div>
+<!-- Terms -->
+<div class="flex items-start gap-3 py-2">
+<input class="mt-1 rounded bg-slate-50 dark:bg-surface-dark border-slate-200 dark:border-border-dark text-primary focus:ring-primary" id="terms" type="checkbox"/>
+<label class="text-sm text-slate-600 dark:text-slate-400 font-light leading-relaxed" for="terms">
+                        I agree to the <a class="text-primary hover:underline underline-offset-4" href="#">Terms of Service</a> and <a class="text-primary hover:underline underline-offset-4" href="#">Privacy Policy</a>.
+                    </label>
+</div>
+<!-- Primary CTA -->
+<button class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-4 rounded-lg shadow-lg shadow-primary/20 transition-all active:scale-[0.98] uppercase tracking-[0.2em] text-sm mt-4" type="submit">
+                    Join the Club
+                </button>
+</form>
+<!-- Social Authentication -->
+<div class="w-full mt-10 space-y-4">
+<div class="relative flex items-center justify-center">
+<div class="absolute inset-0 flex items-center">
+<div class="w-full border-t border-slate-200 dark:border-border-dark"></div>
+</div>
+<span class="relative bg-background-light dark:bg-background-dark px-4 text-xs font-semibold uppercase tracking-widest text-slate-400">Or register with</span>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<button class="flex items-center justify-center gap-2 h-12 border border-slate-200 dark:border-border-dark rounded-lg hover:bg-slate-100 dark:hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined text-xl">brand_family</span>
+<span class="text-sm font-medium">Apple</span>
+</button>
+<button class="flex items-center justify-center gap-2 h-12 border border-slate-200 dark:border-border-dark rounded-lg hover:bg-slate-100 dark:hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined text-xl">language</span>
+<span class="text-sm font-medium">Google</span>
+</button>
+</div>
+</div>
+<!-- Login Redirect -->
+<div class="mt-12 text-center pb-8">
+<p class="text-slate-600 dark:text-slate-400 font-light">
+                    Already have an account? 
+                    <a class="text-primary font-bold hover:underline underline-offset-4 ml-1" href="#">Log In</a>
+</p>
+</div>
+</main>
+<!-- Subtle Footer Detail -->
+<div class="w-full py-6 border-t border-slate-200 dark:border-border-dark flex justify-center opacity-50">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">diamond</span>
+<span class="text-[10px] tracking-[0.3em] uppercase">Est. 1954</span>
+</div>
+</div>
+</div>
+</body></html>

@@ -1,0 +1,19 @@
+{
+  "appId": "com.continental.manager",
+  "appName": "Le Continental Manager",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "Camera": {
+      "permissions": {
+        "camera": "Cette app a besoin d'accéder à la caméra pour scanner les codes-barres",
+        "photos": "Cette app a besoin d'accéder aux photos"
+      }
+    },
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    }
+  }
+}
