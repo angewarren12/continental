@@ -5,6 +5,7 @@ import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import { connectDatabase } from './config/database';
+import { syncDatabase } from './models';
 import './models'; // Initialiser les modèles Sequelize
 import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
@@ -170,6 +171,7 @@ app.use((req: Request, res: Response) => {
 const startServer = async () => {
   try {
     await connectDatabase();
+    await syncDatabase(); // Créer les tables automatiquement
     app.listen(PORT, () => {
       console.log(`🚀 Serveur démarré sur le port ${PORT}`);
       console.log(`📊 Environnement: ${process.env.NODE_ENV || 'development'}`);

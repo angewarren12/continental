@@ -1,3 +1,4 @@
+import { sequelize } from '../config/database';
 import User from './User';
 import Product from './Product';
 import Order from './Order';
@@ -46,6 +47,17 @@ Product.hasMany(ProductSupplement, { foreignKey: 'supplementId', as: 'usedAsSupp
 // Associations pour DishSupplement
 DishSupplement.belongsTo(Product, { foreignKey: 'dishId', as: 'dish' });
 Product.hasMany(DishSupplement, { foreignKey: 'dishId', as: 'legacySupplements' });
+
+// Synchroniser la base de données (créer les tables si elles n'existent pas)
+export const syncDatabase = async () => {
+  try {
+    await sequelize.sync({ alter: process.env.NODE_ENV === 'development' });
+    console.log('✅ Base de données synchronisée avec succès');
+  } catch (error) {
+    console.error('❌ Erreur de synchronisation de la base de données:', error);
+    throw error;
+  }
+};
 
 export {
   User,
