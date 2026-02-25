@@ -33,6 +33,9 @@ export const updateStock = async (
   // Le backend récupère automatiquement le userId depuis le token JWT
   const response = await apiClient.put<{ stock: Stock }>(`/stock/${productId}`, {
     quantity: stockData.quantity,
+    quantityPackets: stockData.quantityPackets,
+    quantityUnits: stockData.quantityUnits,
+    quantityPlates: stockData.quantityPlates,
     type: stockData.type,
   });
   return response.stock;

@@ -12,7 +12,6 @@ const NetworkIndicator: React.FC = () => {
         open={!isOnline}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         TransitionComponent={Slide}
-        TransitionProps={{ direction: 'down' }}
       >
         <Alert
           severity="error"
@@ -34,7 +33,6 @@ const NetworkIndicator: React.FC = () => {
         open={isOnline && wasOffline}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         TransitionComponent={Slide}
-        TransitionProps={{ direction: 'down' }}
         autoHideDuration={3000}
       >
         <Alert

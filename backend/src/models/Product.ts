@@ -1,40 +1,47 @@
 import { DataTypes, Model, Optional } from 'sequelize';
 import sequelize from '../config/database';
 
+export type ProductType = 'food' | 'dish' | 'drink' | 'cigarette' | 'egg' | 'supplement' | 'service';
+export type StockUnit = 'packet' | 'unit' | 'plate';
+export type SaleUnit = 'packet' | 'unit' | 'plate';
+
 export interface ProductAttributes {
   id: number;
   name: string;
-  category: 'food' | 'drink' | 'service';
-  categoryId?: number;
-  type: string;
-  imageUrl?: string;
-  description?: string;
+  categoryId: number;
+  productType: ProductType;
+  stockUnit?: StockUnit | null;
+  saleUnit?: SaleUnit | null;
+  conversionFactor?: number | null;
+  imageUrl?: string | null;
+  description?: string | null;
   price: number;
-  hasStock: boolean;
-  stockQuantity?: number;
-  unit?: string;
   isActive: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
-export interface ProductCreationAttributes extends Optional<ProductAttributes, 'id' | 'isActive' | 'createdAt' | 'updatedAt'> {}
+export interface ProductCreationAttributes extends Optional<ProductAttributes, 'id' | 'isActive' | 'createdAt' | 'updatedAt' | 'stockUnit' | 'saleUnit' | 'conversionFactor'> { }
 
 class Product extends Model<ProductAttributes, ProductCreationAttributes> implements ProductAttributes {
   public id!: number;
   public name!: string;
-  public category!: 'food' | 'drink' | 'service';
-  public categoryId?: number;
-  public type!: string;
+  public categoryId!: number;
+  public productType!: ProductType;
+  public stockUnit?: StockUnit;
+  public saleUnit?: SaleUnit;
+  public conversionFactor?: number;
   public imageUrl?: string;
   public description?: string;
   public price!: number;
-  public hasStock!: boolean;
-  public stockQuantity?: number;
-  public unit?: string;
   public isActive!: boolean;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
+
+  // Virtual property
+  public get hasStock(): boolean {
+    return !!(this as any).stock;
+  }
 }
 
 Product.init(
@@ -48,18 +55,31 @@ Product.init(
       type: DataTypes.STRING(255),
       allowNull: false,
     },
-    category: {
-      type: DataTypes.ENUM('food', 'drink', 'service'),
-      allowNull: false,
-    },
     categoryId: {
       type: DataTypes.INTEGER,
-      allowNull: true,
+      allowNull: false,
       field: 'category_id',
     },
-    type: {
-      type: DataTypes.STRING(50),
+    productType: {
+      type: DataTypes.ENUM('dish', 'drink', 'cigarette', 'egg', 'supplement', 'service'),
       allowNull: false,
+      field: 'product_type',
+    },
+    stockUnit: {
+      type: DataTypes.ENUM('packet', 'unit', 'plate'),
+      allowNull: true,
+      field: 'stock_unit',
+    },
+    saleUnit: {
+      type: DataTypes.ENUM('packet', 'unit', 'plate'),
+      allowNull: true,
+      defaultValue: 'unit',
+      field: 'sale_unit',
+    },
+    conversionFactor: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'conversion_factor',
     },
     imageUrl: {
       type: DataTypes.STRING(500),
@@ -73,21 +93,6 @@ Product.init(
     price: {
       type: DataTypes.INTEGER,
       allowNull: false,
-    },
-    hasStock: {
-      type: DataTypes.BOOLEAN,
-      allowNull: false,
-      defaultValue: false,
-      field: 'has_stock',
-    },
-    stockQuantity: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      field: 'stock_quantity',
-    },
-    unit: {
-      type: DataTypes.STRING(50),
-      allowNull: true,
     },
     isActive: {
       type: DataTypes.BOOLEAN,
@@ -112,9 +117,6 @@ Product.init(
     sequelize,
     tableName: 'products',
     indexes: [
-      {
-        fields: ['category'],
-      },
       {
         fields: ['category_id'],
       },

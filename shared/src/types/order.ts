@@ -5,6 +5,8 @@ export type PaymentMethod = 'cash' | 'wave';
 export interface OrderItem {
   id?: number;
   productId: number;
+  parentItemId?: number;
+  isSupplement?: boolean;
   productName: string;
   quantity: number;
   unitPrice: number;
@@ -15,15 +17,22 @@ export interface Payment {
   id: number;
   orderId: number;
   amount: number;
-  paymentMethod: PaymentMethod;
+  method: PaymentMethod;
   createdBy: number;
   createdAt: Date | string;
   updatedAt?: Date | string;
 }
 
+export interface User {
+  id: number;
+  name: string;
+  phoneNumber: string;
+}
+
 export interface Order {
   id: number;
   clientId: number;
+  client?: User;
   items: OrderItem[];
   totalAmount: number;
   status: OrderStatus;

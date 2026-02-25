@@ -24,8 +24,9 @@ export interface DeleteCategoryResponse {
 /**
  * Récupérer toutes les catégories
  */
-export const getCategories = async (): Promise<Category[]> => {
-  const response = await apiClient.get<GetCategoriesResponse>('/categories');
+export const getCategories = async (mainCategory?: 'food' | 'drink' | 'service'): Promise<Category[]> => {
+  const params = mainCategory ? `?mainCategory=${mainCategory}` : '';
+  const response = await apiClient.get<GetCategoriesResponse>(`/categories${params}`);
   return response.categories;
 };
 

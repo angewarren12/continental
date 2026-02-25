@@ -54,7 +54,7 @@ const ProfileScreen: React.FC = () => {
     try {
       await updateUser(user.id, {
         name: formData.name,
-        email: formData.email || null,
+        email: formData.email || undefined,
       });
       await refreshUser();
       setSuccess(true);

@@ -2,8 +2,9 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { TextField, TextFieldProps } from '@mui/material';
 
-interface AnimatedInputProps extends TextFieldProps {
+interface AnimatedInputProps extends Omit<TextFieldProps, 'sx'> {
   delay?: number;
+  sx?: TextFieldProps['sx'];
 }
 
 const AnimatedInput: React.FC<AnimatedInputProps> = ({

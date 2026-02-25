@@ -14,7 +14,8 @@ export const uploadProductImage = async (file: File): Promise<UploadProductImage
   formData.append('image', file);
 
   const token = apiClient.getToken();
-  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002/api';
+  // @ts-ignore - Vite injects import.meta.env at build time
+  const API_BASE_URL = (import.meta as any)?.env?.VITE_API_URL || 'http://localhost:3002/api';
   const url = `${API_BASE_URL}/upload/product-image`;
 
   const headers: HeadersInit = {};

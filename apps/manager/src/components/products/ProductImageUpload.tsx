@@ -83,8 +83,9 @@ const ProductImageUpload: React.FC<ProductImageUploadProps> = ({ value, onChange
     if (value.startsWith('http')) return value;
     // Si c'est un chemin relatif, construire l'URL complète
     // Les images sont servies directement depuis le serveur, pas via /api
-    const BASE_URL = import.meta.env.VITE_API_URL 
-      ? import.meta.env.VITE_API_URL.replace('/api', '') // Enlever /api si présent
+    // @ts-ignore - Vite injects import.meta.env at build time
+    const BASE_URL = (import.meta as any)?.env?.VITE_API_URL 
+      ? (import.meta as any).env.VITE_API_URL.replace('/api', '') // Enlever /api si présent
       : 'http://localhost:3002';
     // Le backend retourne /images/products/... (le serveur sert via /images)
     const fullUrl = `${BASE_URL}${value}`;

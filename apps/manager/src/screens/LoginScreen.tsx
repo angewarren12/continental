@@ -82,7 +82,7 @@ const LoginScreen: React.FC = () => {
       triggerShake();
       return;
     }
-
+    
     setLoading(true);
     setError(null);
 
@@ -107,7 +107,7 @@ const LoginScreen: React.FC = () => {
     <Box
       sx={{
         minHeight: '100vh',
-        backgroundColor: '#D4C4B0', // Marron clair
+        backgroundColor: '#000000', // Noir
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',

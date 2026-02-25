@@ -1,5 +1,43 @@
 import Category from '../models/Category';
-import { DEFAULT_CATEGORIES } from '@shared/types/category';
+
+// Catégories prédéfinies pour les boissons
+const DEFAULT_CATEGORIES = [
+  {
+    name: 'Bières',
+    mainCategory: 'drink',
+    description: 'Bières locales et importées',
+    icon: 'LocalBar',
+    color: '#bd0f3b',
+  },
+  {
+    name: 'Vins',
+    mainCategory: 'drink',
+    description: 'Vins rouges, blancs et rosés',
+    icon: 'WineBar',
+    color: '#8B0000',
+  },
+  {
+    name: 'Soft drinks',
+    mainCategory: 'drink',
+    description: 'Boissons non alcoolisées',
+    icon: 'LocalDrink',
+    color: '#FF6B6B',
+  },
+  {
+    name: 'Cocktails',
+    mainCategory: 'drink',
+    description: 'Cocktails et boissons mixtes',
+    icon: 'SportsBar',
+    color: '#bd0f3b',
+  },
+  {
+    name: 'Eaux',
+    mainCategory: 'drink',
+    description: 'Eaux minérales et gazeuses',
+    icon: 'WaterDrop',
+    color: '#2196F3',
+  },
+] as const;
 
 /**
  * Seed les catégories par défaut
@@ -16,6 +54,7 @@ export const seedCategories = async (): Promise<void> => {
           description: categoryData.description,
           icon: categoryData.icon,
           color: categoryData.color,
+          mainCategory: categoryData.mainCategory,
           isActive: true,
         },
       });

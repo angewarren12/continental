@@ -33,39 +33,51 @@ import {
 } from '@mui/material';
 import {
   Add as AddIcon,
+  Remove as RemoveIcon,
+  Delete as DeleteIcon,
+  Edit as EditIcon,
+  Close as CloseIcon,
+  Search as SearchIcon,
+  Visibility as VisibilityIcon,
   Visibility as ViewIcon,
   Payment as PaymentIcon,
-  Receipt as ReceiptIcon,
-  Search as SearchIcon,
-  ViewList as ViewListIcon,
-  ViewModule as ViewModuleIcon,
-  FilterList as FilterListIcon,
-  TrendingUp as TrendingUpIcon,
-  AccessTime as AccessTimeIcon,
+  ShoppingCart as ShoppingCartIcon,
+  Restaurant as RestaurantIcon,
+  LocalBar as LocalBarIcon,
+  Cake as CakeIcon,
+  LocalOffer as LocalOfferIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
   LocalDining as TableIcon,
   Person as PersonIcon,
   CalendarToday as CalendarIcon,
   AttachMoney as MoneyIcon,
-  Remove as RemoveIcon,
+  Phone as PhoneIcon,
+  ViewModule as ViewModuleIcon,
+  ViewList as ViewListIcon,
+  Receipt as ReceiptIcon,
+  AccessTime as AccessTimeIcon,
 } from '@mui/icons-material';
+import { Order, OrderItem, OrderPayment, OrderStatus, PaymentStatus, PaymentMethod } from '@shared/types/order';
+import { Product, ProductSupplement } from '@shared/types/product';
+import { Client } from '@shared/types/client';
+import { Stock } from '@shared/types/stock';
+import { Category } from '@shared/types/category';
 import {
   getOrders,
-  updateOrder,
   getOrder,
-  createPayment,
+  updateOrder,
+  deleteOrder,
   addItemsToOrder,
+  createPayment,
+  addOrderSupplements,
 } from '@shared/api/orders';
 import { getProducts } from '@shared/api/products';
-import { getCategories } from '@shared/api/categories';
 import { getAllStocks } from '@shared/api/stock';
-import { Product } from '@shared/types/product';
-import { Category } from '@shared/types/category';
-import { OrderItem } from '@shared/types/order';
-import { Order, OrderStatus, PaymentStatus, PaymentMethod } from '@shared/types/order';
+import { getCategories } from '@shared/api/categories';
 import { format, formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import SupplementDialog from '../components/orders/SupplementDialog';
 import { staggerContainer, staggerItem, slideUp, scale } from '../constants/animations';
 import SectionTitle from '../components/ui/SectionTitle';
 import StatCard from '../components/ui/StatCard';
@@ -79,6 +91,8 @@ const OrdersScreen: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [stocks, setStocks] = useState<Stock[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -97,6 +111,7 @@ const OrdersScreen: React.FC = () => {
   const [quantity, setQuantity] = useState(1);
   const [openQuantityDialog, setOpenQuantityDialog] = useState(false);
   const [itemsToAdd, setItemsToAdd] = useState<OrderItem[]>([]);
+  const [openSupplementDialog, setOpenSupplementDialog] = useState(false);
 
   useEffect(() => {
     loadOrders();
@@ -161,14 +176,22 @@ const OrdersScreen: React.FC = () => {
         getCategories(),
       ]);
       
+      console.log('[STOCK DEBUG] Stocks chargés:', allStocks);
+      console.log('[STOCK DEBUG] Produits chargés:', allProducts);
+      
+      // Assigner les stocks pour les logs de débogage
+      setStocks(allStocks); // ← AJOUTÉ
+      
       const productsWithStock = allProducts.map((product) => {
         const stock = allStocks.find((s) => s.productId === product.id);
         return {
           ...product,
-          stockQuantity: stock ? stock.quantity : (product.stockQuantity || 0),
+          stockQuantity: stock ? stock.quantity : 0,
           hasStock: stock ? stock.quantity > 0 : (product.hasStock || false),
         };
       });
+      
+      console.log('[STOCK DEBUG] Produits avec stock:', productsWithStock);
       
       setProducts(productsWithStock);
       setCategories(allCategories.filter(c => c.isActive));
@@ -180,22 +203,45 @@ const OrdersScreen: React.FC = () => {
   };
 
   const handleProductClickForAdd = (product: Product) => {
+    console.log('[STOCK DEBUG] Produit sélectionné:', product);
+    const stock = stocks.find((s) => s.productId === product.id);
+    console.log('[STOCK DEBUG] Stock trouvé:', stock);
+    console.log('[STOCK DEBUG] Quantité disponible:', stock?.quantity || 0);
+    
     setSelectedProduct(product);
-    setQuantity(1);
-    setOpenQuantityDialog(true);
+    
+    // Si c'est un plat avec suppléments, ouvrir le SupplementDialog
+    if (product.productType === 'dish' && product.supplements && product.supplements.length > 0) {
+      setOpenSupplementDialog(true);
+    } else {
+      // Sinon, ouvrir le simple dialog de quantité
+      setQuantity(1);
+      setOpenQuantityDialog(true);
+    }
   };
 
   const handleAddToItemsList = () => {
     if (!selectedProduct) return;
 
-    if (selectedProduct.hasStock && selectedProduct.stockQuantity !== undefined) {
+    const stock = stocks.find((s) => s.productId === selectedProduct.id);
+    console.log('[STOCK DEBUG] Ajout à la liste - Produit:', selectedProduct.name);
+    console.log('[STOCK DEBUG] Stock disponible:', stock);
+    console.log('[STOCK DEBUG] Quantité demandée:', quantity);
+    
+    if (selectedProduct.hasStock && stock && stock.quantity !== undefined) {
       const currentInList = itemsToAdd
         .filter((item) => item.productId === selectedProduct.id)
         .reduce((sum, item) => sum + item.quantity, 0);
 
-      if (currentInList + quantity > selectedProduct.stockQuantity) {
+      console.log('[STOCK DEBUG] Déjà dans la liste:', currentInList);
+      console.log('[STOCK DEBUG] Total après ajout:', currentInList + quantity);
+      console.log('[STOCK DEBUG] Limite stock:', stock.quantity);
+
+      if (currentInList + quantity > stock.quantity) {
+        const available = stock.quantity - currentInList;
+        console.log('[STOCK DEBUG] Stock insuffisant! Disponible:', available);
         setError(
-          `Stock insuffisant. Disponible: ${selectedProduct.stockQuantity - currentInList}`
+          `Stock insuffisant. Disponible: ${available}`
         );
         return;
       }
@@ -211,6 +257,7 @@ const OrdersScreen: React.FC = () => {
       updatedItems[existingItemIndex].totalPrice =
         updatedItems[existingItemIndex].quantity * updatedItems[existingItemIndex].unitPrice;
       setItemsToAdd(updatedItems);
+      console.log('[STOCK DEBUG] Item existant mis à jour:', updatedItems[existingItemIndex]);
     } else {
       const newItem: OrderItem = {
         productId: selectedProduct.id,
@@ -220,11 +267,67 @@ const OrdersScreen: React.FC = () => {
         totalPrice: quantity * Number(selectedProduct.price),
       };
       setItemsToAdd([...itemsToAdd, newItem]);
+      console.log('[STOCK DEBUG] Nouvel item ajouté:', newItem);
     }
-
     setOpenQuantityDialog(false);
     setSelectedProduct(null);
     setQuantity(1);
+  };
+
+  const handleSupplementConfirm = (quantity: number, selectedSupplements: ProductSupplement[]) => {
+    if (!selectedProduct) return;
+
+    console.log('[SUPPLEMENT DEBUG] Confirmation - Quantité:', quantity);
+    console.log('[SUPPLEMENT DEBUG] Suppléments sélectionnés (brut):', selectedSupplements);
+    console.log('[SUPPLEMENT DEBUG] Prix produit:', selectedProduct.price);
+
+    // Calculer le prix total des suppléments
+    const supplementsTotal = selectedSupplements.reduce((sum, supplement) => {
+      console.log('[SUPPLEMENT DEBUG] Structure supplément:', supplement);
+      console.log('[SUPPLEMENT DEBUG] supplement.price:', supplement.price);
+      console.log('[SUPPLEMENT DEBUG] supplement.supplement_price:', supplement.supplement_price);
+      
+      // Essayer différentes propriétés pour le prix
+      const supplementPrice = Number(supplement.price) || Number(supplement.supplement_price) || 0;
+      console.log(`[SUPPLEMENT DEBUG] Supplément ${supplement.name || supplement.supplement_name}:`, supplementPrice);
+      return sum + supplementPrice;
+    }, 0);
+
+    console.log('[SUPPLEMENT DEBUG] Total suppléments:', supplementsTotal);
+
+    // Calculer le prix unitaire avec suppléments
+    const basePrice = Number(selectedProduct.price) || 0;
+    const unitPriceWithSupplements = basePrice + supplementsTotal;
+    const totalPrice = quantity * unitPriceWithSupplements;
+
+    console.log('[SUPPLEMENT DEBUG] Calcul final:', {
+      basePrice,
+      supplementsTotal,
+      unitPriceWithSupplements,
+      quantity,
+      totalPrice
+    });
+
+    // Créer UN SEUL item qui inclut les suppléments
+    const mainItem: OrderItem = {
+      productId: selectedProduct.id,
+      productName: selectedProduct.name,
+      quantity,
+      unitPrice: basePrice, // Prix de base du plat
+      totalPrice: totalPrice, // Prix total avec suppléments
+      supplements: selectedSupplements.map(supplement => ({
+        supplementId: supplement.id,
+        supplementName: supplement.name || supplement.supplement_name,
+        supplementPrice: Number(supplement.price) || Number(supplement.supplement_price) || 0,
+        quantity: quantity
+      }))
+    };
+
+    console.log('[SUPPLEMENT DEBUG] Item final avec suppléments:', mainItem);
+    setItemsToAdd([...itemsToAdd, mainItem]);
+
+    setOpenSupplementDialog(false);
+    setSelectedProduct(null);
   };
 
   const handleAddItemsToOrder = async () => {
@@ -232,22 +335,115 @@ const OrdersScreen: React.FC = () => {
 
     setLoading(true);
     setError(null);
+    
+    console.log('🎯 [FRONTEND] ===== DÉBUT AJOUT ITEMS À COMMANDE =====');
+    console.log('🎯 [FRONTEND] Commande sélectionnée:', selectedOrder.id);
+    console.log('🎯 [FRONTEND] Statut commande:', selectedOrder.status);
+    console.log('🎯 [FRONTEND] Total actuel:', selectedOrder.totalAmount);
+    console.log('🎯 [FRONTEND] Items à ajouter:', itemsToAdd.length);
+    console.log('🎯 [FRONTEND] Items détaillés:', JSON.stringify(itemsToAdd, null, 2));
+    
     try {
-      const updatedOrder = await addItemsToOrder(selectedOrder.id, {
+      // Utiliser directement les vrais items (plus de test)
+      const mainItemsPayload = {
         items: itemsToAdd.map(item => ({
           productId: item.productId,
           productName: item.productName,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
-        })),
-      });
+        }))
+      };
+
+      console.log('🎯 [FRONTEND] Payload vrais items:', JSON.stringify(mainItemsPayload, null, 2));
+      console.log('🎯 [FRONTEND] Appel API avec vrais items...');
+      console.log('🎯 [FRONTEND] Appel API: POST /api/orders/' + selectedOrder.id + '/items');
+
+      const updatedOrder = await addItemsToOrder(selectedOrder.id, mainItemsPayload);
+      console.log('🎯 [FRONTEND] ✅ Items principaux ajoutés avec succès:', updatedOrder);
+      console.log('🎯 [FRONTEND] Nombre total d\'items:', updatedOrder.orderItems?.length || 0);
+      
+      // Étape 2: Ajouter les suppléments séparément pour chaque item avec suppléments
+      let itemIndex = 0;
+      for (const item of itemsToAdd) {
+        if (item.supplements && item.supplements.length > 0) {
+          console.log('🎯 [FRONTEND] Ajout des suppléments pour:', item.productName);
+          
+          // Récupérer l'ID du nouvel item créé en cherchant le dernier item correspondant
+          const newItemId = updatedOrder.orderItems?.find((orderItem, index) => {
+            // Chercher l'item qui correspond à notre produit et qui n'existait pas avant
+            const isNewItem = index >= (selectedOrder.orderItems?.length || 0);
+            const isMatchingProduct = orderItem.productId === item.productId;
+            return isNewItem && isMatchingProduct;
+          })?.id;
+          
+          console.log('🎯 [FRONTEND] ID du nouvel item trouvé:', newItemId);
+          
+          if (newItemId) {
+            for (const supplement of item.supplements) {
+              console.log('🎯 [FRONTEND] Ajout supplément:', supplement);
+              
+              try {
+                await addOrderSupplements(selectedOrder.id, newItemId, {
+                  supplements: [{
+                    supplementId: supplement.supplementId,
+                    supplementName: supplement.supplementName,
+                    supplementPrice: supplement.supplementPrice,
+                    quantity: supplement.quantity
+                  }]
+                });
+                console.log('🎯 [FRONTEND] ✅ Supplément ajouté avec succès');
+              } catch (supplementErr: any) {
+                console.error('🎯 [FRONTEND] Erreur ajout supplément:', supplementErr);
+                // Continuer même si un supplément échoue
+              }
+            }
+          } else {
+            console.error('🎯 [FRONTEND] Impossible de trouver l\'ID du nouvel item');
+            console.log('🎯 [FRONTEND] OrderItems existants:', selectedOrder.orderItems);
+            console.log('🎯 [FRONTEND] OrderItems après ajout:', updatedOrder.orderItems);
+          }
+        }
+        itemIndex++;
+      }
       
       setSelectedOrder(updatedOrder);
       setOpenAddItemsDialog(false);
       setItemsToAdd([]);
+      
+      // Recharger les commandes pour mettre à jour la liste
       await loadOrders();
+      
+      // Mettre à jour la commande sélectionnée avec les données fraîches
+      const freshOrder = await getOrder(selectedOrder.id);
+      if (freshOrder) {
+        setSelectedOrder(freshOrder);
+        console.log('🎯 [FRONTEND] Commande fraîche récupérée:', freshOrder);
+        console.log('🎯 [FRONTEND] Items avec suppléments:', freshOrder.items?.map(item => ({
+          id: item.id,
+          productName: item.productName,
+          orderSupplements: item.orderSupplements
+        })));
+      }
+      
+      console.log('🎯 [FRONTEND] ===== FIN AJOUT ITEMS - SUCCÈS =====');
     } catch (err: any) {
+      console.log('🎯 [FRONTEND] ===== ERREUR AJOUT ITEMS =====');
+      console.error('🎯 [FRONTEND] Erreur complète:', err);
+      console.log('🎯 [FRONTEND] Type erreur:', err.constructor.name);
+      console.log('🎯 [FRONTEND] Message erreur:', err.message);
+      console.log('🎯 [FRONTEND] Response:', err.response);
+      console.log('🎯 [FRONTEND] Status:', err.response?.status);
+      console.log('🎯 [FRONTEND] Data:', err.response?.data);
+      console.log('🎯 [FRONTEND] Request:', err.request);
+      console.log('🎯 [FRONTEND] Stack:', err.stack);
+      
+      // Afficher l'erreur exacte pour le débogage
+      if (err.response?.data) {
+        console.error('🎯 [FRONTEND] Erreur backend détaillée:', err.response.data);
+      }
+      
       setError(err.message || 'Erreur lors de l\'ajout des articles');
+      console.log('🎯 [FRONTEND] ===== FIN ERREUR AJOUT ITEMS =====');
     } finally {
       setLoading(false);
     }
@@ -300,7 +496,7 @@ const OrdersScreen: React.FC = () => {
       const { order } = await createPayment({
         orderId: selectedOrder.id,
         amount: Number(amount), // S'assurer que c'est un nombre
-        paymentMethod: paymentMethod as 'cash' | 'wave',
+        method: paymentMethod as 'cash' | 'wave',
       });
       
       // Fermer le dialog de paiement d'abord
@@ -674,11 +870,11 @@ const OrdersScreen: React.FC = () => {
                       >
                         <CardContent sx={{ p: 2.5, backgroundColor: 'transparent' }}>
                           {/* Header */}
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'flex-start',
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'flex-start',
                               mb: 2,
                             }}
                           >
@@ -708,12 +904,41 @@ const OrdersScreen: React.FC = () => {
                                 <AccessTimeIcon sx={{ fontSize: 12 }} />
                                 {formatDistanceToNow(new Date(order.createdAt), {
                                   addSuffix: true,
-                                locale: fr,
-                              })}
-                            </Typography>
-                          </Box>
-                          <Typography
-                            variant="h6"
+                                  locale: fr,
+                                })}
+                              </Typography>
+                              {/* Nom du client */}
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: '#000000',
+                                  fontWeight: 600,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 0.5,
+                                }}
+                              >
+                                <PersonIcon sx={{ fontSize: 14 }} />
+                                {order.client?.name || 'Client inconnu'}
+                              </Typography>
+                              {/* Numéro de téléphone */}
+                              {order.client?.phoneNumber && (
+                                <Typography
+                                  variant="caption"
+                                  sx={{
+                                    color: '#666666',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 0.5,
+                                  }}
+                                >
+                                  <PhoneIcon sx={{ fontSize: 12 }} />
+                                  {order.client.phoneNumber}
+                                </Typography>
+                              )}
+                            </Box>
+                            <Typography
+                              variant="h6"
                               sx={{
                                 fontWeight: 700,
                                 color: '#DC143C',
@@ -721,7 +946,7 @@ const OrdersScreen: React.FC = () => {
                               }}
                             >
                               #{order.id}
-                          </Typography>
+                            </Typography>
                           </Box>
 
                           {/* Montant */}
@@ -1049,11 +1274,23 @@ const OrdersScreen: React.FC = () => {
         <DialogTitle sx={{ fontWeight: 700, color: '#000000', pb: 1 }}>
           Commande #{selectedOrder?.id}
           <Typography variant="body2" sx={{ color: '#666666', fontWeight: 400, mt: 0.5 }}>
-          {selectedOrder &&
+            {selectedOrder &&
               format(new Date(selectedOrder.createdAt), 'dd MMMM yyyy à HH:mm', {
-              locale: fr,
-            })}
+                locale: fr,
+              })}
           </Typography>
+          {/* Nom du client */}
+          <Typography variant="body2" sx={{ color: '#000000', fontWeight: 600, mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <PersonIcon sx={{ fontSize: 16 }} />
+            {selectedOrder?.client?.name || 'Client inconnu'}
+          </Typography>
+          {/* Numéro de téléphone */}
+          {selectedOrder?.client?.phoneNumber && (
+            <Typography variant="caption" sx={{ color: '#666666', mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <PhoneIcon sx={{ fontSize: 14 }} />
+              {selectedOrder.client.phoneNumber}
+            </Typography>
+          )}
         </DialogTitle>
         <DialogContent sx={{ backgroundColor: '#FFFFFF' }}>
           {selectedOrder && (
@@ -1086,31 +1323,81 @@ const OrdersScreen: React.FC = () => {
                   Articles
                 </Typography>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  {selectedOrder.items && selectedOrder.items.map((item: any, index: number) => (
-                    <Box
-                      key={index}
-                      sx={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        p: 2,
-                        borderRadius: 2,
-                        backgroundColor: '#F5F5F5',
-                      }}
-                    >
-                      <Box>
-                        <Typography variant="body1" sx={{ fontWeight: 600, color: '#000000' }}>
-                          {item.productName}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: '#666666' }}>
-                          {item.quantity} × {Number(item.unitPrice).toFixed(0)} FCFA
-                        </Typography>
-                      </Box>
-                      <Typography variant="body1" sx={{ fontWeight: 700, color: '#DC143C' }}>
-                        {Number(item.totalPrice).toFixed(0)} FCFA
-                      </Typography>
-                    </Box>
-                  ))}
+                  {selectedOrder.items && (() => {
+                    // Organiser les items : plats avec leurs suppléments
+                    console.log('[DEBUG] Order items:', selectedOrder.items);
+                    const mainItems = selectedOrder.items.filter((item: any) => !item.isSupplement);
+                    
+                    console.log('[DEBUG] Main items:', mainItems);
+
+                    return mainItems.map((item: any, index: number) => {
+                      const supplements = item.orderSupplements || [];
+                      
+                      console.log(`[DEBUG] Item ${item.id} has ${supplements.length} supplements:`, supplements);
+                      
+                      return (
+                        <Box key={item.id || index}>
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              p: 2,
+                              borderRadius: 2,
+                              backgroundColor: '#F5F5F5',
+                              mb: supplements.length > 0 ? 0.5 : 0,
+                            }}
+                          >
+                            <Box>
+                              <Typography variant="body1" sx={{ fontWeight: 600, color: '#000000' }}>
+                                {item.productName}
+                              </Typography>
+                              <Typography variant="body2" sx={{ color: '#666666' }}>
+                                {item.quantity} × {Number(item.unitPrice).toFixed(0)} FCFA
+                              </Typography>
+                            </Box>
+                            <Typography variant="body1" sx={{ fontWeight: 700, color: '#DC143C' }}>
+                              {Number(item.totalPrice).toFixed(0)} FCFA
+                            </Typography>
+                          </Box>
+                          {/* Afficher les suppléments indentés */}
+                          {supplements.map((supplement: any, suppIndex: number) => (
+                            <Box
+                              key={supplement.id || `supp-${index}-${suppIndex}`}
+                              sx={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                p: 1.5,
+                                pl: 4,
+                                borderRadius: 2,
+                                backgroundColor: '#F9F9F9',
+                                ml: 2,
+                                borderLeft: '3px solid #bd0f3b',
+                              }}
+                            >
+                              <Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                  <Typography variant="caption" sx={{ color: '#bd0f3b', fontWeight: 700 }}>
+                                    +
+                                  </Typography>
+                                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#000000' }}>
+                                    {supplement.supplementName}
+                                  </Typography>
+                                </Box>
+                                <Typography variant="caption" sx={{ color: '#666666', pl: 1.5 }}>
+                                  {supplement.quantity} × {Number(supplement.unitPrice).toFixed(0)} FCFA
+                                </Typography>
+                              </Box>
+                              <Typography variant="body2" sx={{ fontWeight: 600, color: '#666666' }}>
+                                {Number(supplement.totalPrice).toFixed(0)} FCFA
+                              </Typography>
+                            </Box>
+                          ))}
+                        </Box>
+                      );
+                    });
+                  })()}
                 </Box>
               </Box>
               <Box
@@ -1203,7 +1490,7 @@ const OrdersScreen: React.FC = () => {
                               >
                                 <Box>
                                   <Typography variant="body1" sx={{ fontWeight: 600, color: '#000000' }}>
-                                    {payment.paymentMethod === 'cash' ? '💵 Espèces' : '🌊 Wave'}
+                                    {payment.method === 'cash' ? '💵 Espèces' : '🌊 Wave'}
                                   </Typography>
                                   <Typography variant="caption" sx={{ color: '#666666' }}>
                                     {format(new Date(payment.createdAt), 'dd MMM yyyy à HH:mm', { locale: fr })}
@@ -1480,38 +1767,82 @@ const OrdersScreen: React.FC = () => {
 
           {/* Liste des produits */}
           <Grid container spacing={2} sx={{ mb: 3 }}>
-            {filteredProducts.map((product) => (
-              <Grid item xs={6} sm={4} md={3} key={product.id}>
-                <Card
-                  sx={{
-                    cursor: 'pointer',
-                    borderRadius: 2,
-                    backgroundColor: '#FFFFFF',
-                    border: '1px solid #E0E0E0',
-                    transition: 'all 0.2s ease',
-                    '&:hover': {
-                      transform: 'translateY(-4px)',
-                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                    },
-                  }}
-                  onClick={() => handleProductClickForAdd(product)}
-                >
-                  <CardContent sx={{ p: 2 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#000000', mb: 0.5 }}>
-                      {product.name}
-                    </Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 700, color: '#DC143C' }}>
-                      {Number(product.price).toFixed(0)} FCFA
-                    </Typography>
-                    {product.hasStock && (
-                      <Typography variant="caption" sx={{ color: '#666666' }}>
-                        Stock: {product.stockQuantity}
+            {filteredProducts.map((product) => {
+              const stock = stocks.find(s => s.productId === product.id);
+              const stockQuantity = stock?.quantity || 0;
+              const isOutOfStock = product.hasStock && stockQuantity === 0;
+              
+              return (
+                <Grid item xs={6} sm={4} md={3} key={product.id}>
+                  <Card
+                    sx={{
+                      cursor: isOutOfStock ? 'not-allowed' : 'pointer',
+                      borderRadius: 2,
+                      backgroundColor: isOutOfStock ? '#F5F5F5' : '#FFFFFF',
+                      border: '1px solid #E0E0E0',
+                      transition: 'all 0.2s ease',
+                      opacity: isOutOfStock ? 0.6 : 1,
+                      '&:hover': !isOutOfStock ? {
+                        transform: 'translateY(-4px)',
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                      } : {
+                        backgroundColor: '#EEEEEE',
+                      },
+                    }}
+                    onClick={() => !isOutOfStock && handleProductClickForAdd(product)}
+                  >
+                    <CardContent sx={{ p: 2 }}>
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          fontWeight: 600, 
+                          color: isOutOfStock ? '#999999' : '#000000', 
+                          mb: 0.5 
+                        }}
+                      >
+                        {product.name}
                       </Typography>
-                    )}
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
+                      <Typography 
+                        variant="h6" 
+                        sx={{ 
+                          fontWeight: 700, 
+                          color: isOutOfStock ? '#CCCCCC' : '#DC143C' 
+                        }}
+                      >
+                        {Number(product.price).toFixed(0)} FCFA
+                      </Typography>
+                      {product.hasStock && (
+                        <Typography 
+                          variant="caption" 
+                          sx={{ 
+                            color: isOutOfStock ? '#FF0000' : stockQuantity <= 5 ? '#FF9800' : '#666666',
+                            fontWeight: isOutOfStock ? 600 : 'normal'
+                          }}
+                        >
+                          {isOutOfStock ? 'Rupture de stock' : `Stock: ${stockQuantity}`}
+                        </Typography>
+                      )}
+                      {isOutOfStock && (
+                        <Box sx={{ mt: 1 }}>
+                          <Typography 
+                            variant="caption" 
+                            sx={{ 
+                              color: '#FF0000', 
+                              fontWeight: 600,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 0.5
+                            }}
+                          >
+                            ❌ Indisponible
+                          </Typography>
+                        </Box>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Grid>
+              );
+            })}
           </Grid>
 
           {/* Articles sélectionnés */}
@@ -1527,21 +1858,36 @@ const OrdersScreen: React.FC = () => {
                     sx={{
                       display: 'flex',
                       justifyContent: 'space-between',
-                      alignItems: 'center',
+                      alignItems: 'flex-start',
                       p: 1.5,
                       borderRadius: 1,
                       backgroundColor: '#FFFFFF',
                     }}
                   >
-                    <Box>
+                    <Box sx={{ flex: 1 }}>
                       <Typography variant="body2" sx={{ fontWeight: 600, color: '#000000' }}>
                         {item.productName}
                       </Typography>
                       <Typography variant="caption" sx={{ color: '#666666' }}>
                           {item.quantity} × {Number(item.unitPrice).toFixed(0)} FCFA
                         </Typography>
+                      {/* Afficher les suppléments s'ils existent */}
+                      {item.supplements && item.supplements.length > 0 && (
+                        <Box sx={{ mt: 0.5, pl: 1 }}>
+                          {item.supplements.map((supplement, supIndex) => (
+                            <Typography key={supIndex} variant="caption" sx={{ 
+                              color: '#2E7D32', 
+                              fontSize: '0.7rem',
+                              display: 'block',
+                              fontWeight: 500
+                            }}>
+                              + {supplement.supplementName} ({Number(supplement.supplementPrice).toFixed(0)} FCFA)
+                            </Typography>
+                          ))}
+                        </Box>
+                      )}
                     </Box>
-                    <Typography variant="body2" sx={{ fontWeight: 700, color: '#DC143C' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 700, color: '#DC143C', ml: 2 }}>
                       {Number(item.totalPrice).toFixed(0)} FCFA
                     </Typography>
                   </Box>
@@ -1694,6 +2040,19 @@ const OrdersScreen: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+      
+      {/* SupplementDialog pour les plats avec suppléments */}
+      {selectedProduct && (
+        <SupplementDialog
+          open={openSupplementDialog}
+          product={selectedProduct}
+          onConfirm={handleSupplementConfirm}
+          onClose={() => {
+            setOpenSupplementDialog(false);
+            setSelectedProduct(null);
+          }}
+        />
+      )}
       </Box>
     </PageTransition>
   );

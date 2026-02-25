@@ -13,6 +13,7 @@ import orderRoutes from './routes/orders';
 import stockRoutes from './routes/stock';
 import categoryRoutes from './routes/categories';
 import uploadRoutes from './routes/upload';
+import productSupplementRoutes from './routes/product-supplements';
 import path from 'path';
 
 dotenv.config();
@@ -132,6 +133,7 @@ if (!isDevelopment || process.env.ENABLE_RATE_LIMIT === 'true') {
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/products', productSupplementRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/stock', stockRoutes);
 app.use('/api/categories', categoryRoutes);

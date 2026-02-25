@@ -7,18 +7,22 @@ export interface OrderItemAttributes {
   id: number;
   orderId: number;
   productId: number;
+  parentItemId?: number;
+  isSupplement: boolean;
   productName: string;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
 }
 
-export interface OrderItemCreationAttributes extends Optional<OrderItemAttributes, 'id'> {}
+export interface OrderItemCreationAttributes extends Optional<OrderItemAttributes, 'id' | 'parentItemId' | 'isSupplement'> {}
 
 class OrderItem extends Model<OrderItemAttributes, OrderItemCreationAttributes> implements OrderItemAttributes {
   public id!: number;
   public orderId!: number;
   public productId!: number;
+  public parentItemId?: number;
+  public isSupplement!: boolean;
   public productName!: string;
   public quantity!: number;
   public unitPrice!: number;
@@ -27,6 +31,7 @@ class OrderItem extends Model<OrderItemAttributes, OrderItemCreationAttributes> 
   // Associations
   public order?: Order;
   public product?: Product;
+  public parentItem?: OrderItem;
 }
 
 OrderItem.init(
@@ -55,6 +60,21 @@ OrderItem.init(
         key: 'id',
       },
     },
+    parentItemId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'parent_item_id',
+      references: {
+        model: 'order_items',
+        key: 'id',
+      },
+    },
+    isSupplement: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      field: 'is_supplement',
+    },
     productName: {
       type: DataTypes.STRING(255),
       allowNull: false,
@@ -82,6 +102,9 @@ OrderItem.init(
     indexes: [
       {
         fields: ['order_id'],
+      },
+      {
+        fields: ['parent_item_id'],
       },
     ],
   }

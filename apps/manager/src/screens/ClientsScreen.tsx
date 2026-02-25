@@ -43,11 +43,13 @@ import {
   Cancel as CancelIcon,
   Pending as PendingIcon,
   LocationOn as LocationIcon,
+  Add as AddIcon,
 } from '@mui/icons-material';
 import {
   getUserByPhone,
   getAllUsers,
   getClientOrders,
+  createClient,
 } from '@shared/api';
 import { User } from '@shared/types/user';
 import { Order } from '@shared/types/order';
@@ -71,6 +73,14 @@ const ClientsScreen: React.FC = () => {
   const [clientDialogOpen, setClientDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [createClientDialogOpen, setCreateClientDialogOpen] = useState(false);
+  const [createClientLoading, setCreateClientLoading] = useState(false);
+  const [newClient, setNewClient] = useState({
+    name: '',
+    phoneNumber: '',
+    email: '',
+    password: '',
+  });
 
   useEffect(() => {
     loadClients();
@@ -120,6 +130,47 @@ const ClientsScreen: React.FC = () => {
     }
   };
 
+  const handleCreateClient = async () => {
+    if (!newClient.name.trim() || !newClient.phoneNumber.trim() || !newClient.password.trim()) {
+      setError('Veuillez remplir tous les champs obligatoires');
+      return;
+    }
+
+    try {
+      setCreateClientLoading(true);
+      setError(null);
+      
+      const clientData = {
+        name: newClient.name.trim(),
+        phoneNumber: newClient.phoneNumber.trim(),
+        email: newClient.email.trim() || undefined,
+        password: newClient.password,
+      };
+
+      const createdClient = await createClient(clientData);
+      
+      // Réinitialiser le formulaire
+      setNewClient({
+        name: '',
+        phoneNumber: '',
+        email: '',
+        password: '',
+      });
+      setCreateClientDialogOpen(false);
+      
+      // Recharger la liste des clients
+      await loadClients();
+      
+      // Afficher un message de succès (vous pourriez ajouter un snackbar ici)
+      console.log('Client créé avec succès:', createdClient);
+      
+    } catch (err: any) {
+      setError(err.message || 'Erreur lors de la création du client');
+    } finally {
+      setCreateClientLoading(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
@@ -165,7 +216,7 @@ const ClientsScreen: React.FC = () => {
           clientOrders.length > 0
             ? new Date(clientOrders[0].createdAt)
             : null,
-        completedOrders: clientOrders.filter((o) => o.status === 'completed' || o.status === 'paid').length,
+        completedOrders: clientOrders.filter((o) => o.status === 'completed' || o.paymentStatus === 'paid').length,
       }
     : null;
 
@@ -175,6 +226,27 @@ const ClientsScreen: React.FC = () => {
         <SectionTitle
           title="Gestion des Clients"
           subtitle={`${totalClients} ${totalClients === 1 ? 'client enregistré' : 'clients enregistrés'}`}
+          action={
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setCreateClientDialogOpen(true)}
+              sx={{
+                backgroundColor: '#bd0f3b',
+                color: '#FFFFFF',
+                fontWeight: 600,
+                textTransform: 'none',
+                borderRadius: 2,
+                px: 3,
+                py: 1,
+                '&:hover': {
+                  backgroundColor: '#8B0000',
+                },
+              }}
+            >
+              Ajouter un client
+            </Button>
+          }
         />
 
       {/* Statistiques globales */}
@@ -760,6 +832,205 @@ const ClientsScreen: React.FC = () => {
             </DialogActions>
           </>
         )}
+      </Dialog>
+
+      {/* Dialogue de création de client */}
+      <Dialog
+        open={createClientDialogOpen}
+        onClose={() => setCreateClientDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            backgroundColor: '#FFFFFF',
+          },
+        }}
+        BackdropProps={{
+          sx: {
+            backgroundColor: 'rgba(0, 0, 0, 0.3)',
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            fontWeight: 700,
+            color: '#000000',
+            fontSize: '1.25rem',
+            pb: 2,
+            borderBottom: '2px solid #F5F5F5',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Avatar
+              sx={{
+                width: 48,
+                height: 48,
+                bgcolor: '#bd0f3b',
+                fontSize: '1.25rem',
+                fontWeight: 700,
+              }}
+            >
+              <AddIcon />
+            </Avatar>
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 700, color: '#000000' }}>
+                Créer un nouveau client
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#666666', fontSize: '0.875rem' }}>
+                Remplissez les informations du client
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton
+            onClick={() => setCreateClientDialogOpen(false)}
+            sx={{
+              color: '#666666',
+              '&:hover': {
+                backgroundColor: 'rgba(0, 0, 0, 0.05)',
+              },
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent sx={{ pt: 3 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              fullWidth
+              label="Nom complet *"
+              value={newClient.name}
+              onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
+              placeholder="Entrez le nom du client"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  '&:hover fieldset': {
+                    borderColor: '#bd0f3b',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: '#bd0f3b',
+                  },
+                },
+              }}
+            />
+
+            <TextField
+              fullWidth
+              label="Numéro de téléphone *"
+              value={newClient.phoneNumber}
+              onChange={(e) => setNewClient({ ...newClient, phoneNumber: e.target.value })}
+              placeholder="0612345678"
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <PhoneIcon sx={{ color: '#666666' }} />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  '&:hover fieldset': {
+                    borderColor: '#bd0f3b',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: '#bd0f3b',
+                  },
+                },
+              }}
+            />
+
+            <TextField
+              fullWidth
+              label="Email"
+              value={newClient.email}
+              onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
+              placeholder="email@exemple.com (optionnel)"
+              type="email"
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <EmailIcon sx={{ color: '#666666' }} />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  '&:hover fieldset': {
+                    borderColor: '#bd0f3b',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: '#bd0f3b',
+                  },
+                },
+              }}
+            />
+
+            <TextField
+              fullWidth
+              label="Mot de passe *"
+              value={newClient.password}
+              onChange={(e) => setNewClient({ ...newClient, password: e.target.value })}
+              placeholder="Entrez un mot de passe"
+              type="password"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  '&:hover fieldset': {
+                    borderColor: '#bd0f3b',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: '#bd0f3b',
+                  },
+                },
+              }}
+            />
+          </Box>
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #F5F5F5' }}>
+          <Button
+            onClick={() => setCreateClientDialogOpen(false)}
+            sx={{
+              color: '#666666',
+              fontWeight: 600,
+              textTransform: 'none',
+            }}
+          >
+            Annuler
+          </Button>
+          <Button
+            onClick={handleCreateClient}
+            disabled={createClientLoading || !newClient.name.trim() || !newClient.phoneNumber.trim() || !newClient.password.trim()}
+            variant="contained"
+            sx={{
+              backgroundColor: '#bd0f3b',
+              color: '#FFFFFF',
+              fontWeight: 600,
+              textTransform: 'none',
+              borderRadius: 2,
+              '&:hover': {
+                backgroundColor: '#8B0000',
+              },
+              '&.Mui-disabled': {
+                backgroundColor: '#E0E0E0',
+                color: '#999999',
+              },
+            }}
+          >
+            {createClientLoading ? (
+              <CircularProgress size={20} sx={{ color: '#FFFFFF' }} />
+            ) : (
+              'Créer le client'
+            )}
+          </Button>
+        </DialogActions>
       </Dialog>
     </Box>
     </PageTransition>

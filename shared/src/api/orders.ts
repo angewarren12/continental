@@ -48,9 +48,54 @@ export const getOrder = async (orderId: number): Promise<Order | null> => {
 export const createOrder = async (
   orderData: OrderCreateInput
 ): Promise<Order> => {
-  // Le backend récupère automatiquement le managerId depuis le token JWT
-  const response = await apiClient.post<{ order: Order }>('/orders', orderData);
-  return response.order;
+  console.log('[API] ===== DÉBUT createOrder =====');
+  console.log('[API] Données reçues:', orderData);
+  console.log('[API] Items count:', orderData.items?.length);
+  console.log('[API] Items détaillés:', orderData.items);
+  
+  // Validation des données avant envoi
+  if (!orderData.clientId) {
+    console.error('[API] ERREUR: clientId manquant');
+    throw new Error('clientId est requis');
+  }
+  
+  if (!orderData.items || orderData.items.length === 0) {
+    console.error('[API] ERREUR: items manquant ou vide');
+    throw new Error('items est requis et ne doit pas être vide');
+  }
+  
+  // Validation de chaque item
+  const invalidItems = orderData.items.filter((item, index) => {
+    const isValid = item.productId && item.productName && item.quantity > 0 && item.unitPrice >= 0;
+    if (!isValid) {
+      console.error(`[API] Item ${index} invalide:`, item);
+    }
+    return !isValid;
+  });
+  
+  if (invalidItems.length > 0) {
+    console.error('[API] ERREUR: Items invalides détectés:', invalidItems);
+    throw new Error(`${invalidItems.length} items invalides détectés`);
+  }
+  
+  console.log('[API] Validation OK - Envoi de la requête...');
+  
+  try {
+    // Le backend récupère automatiquement le managerId depuis le token JWT
+    const response = await apiClient.post<{ order: Order }>('/orders', orderData);
+    console.log('[API] Réponse reçue:', response);
+    console.log('[API] Commande créée:', response.order);
+    console.log('[API] ===== FIN createOrder - SUCCÈS =====');
+    return response.order;
+  } catch (error: any) {
+    console.error('[API] ===== ERREUR createOrder =====');
+    console.error('[API] Erreur:', error);
+    console.error('[API] Message erreur:', error.message);
+    console.error('[API] Response:', error.response);
+    console.error('[API] Request:', error.request);
+    console.log('[API] ===== FIN ERREUR createOrder =====');
+    throw error;
+  }
 };
 
 export const updateOrder = async (
@@ -68,14 +113,14 @@ export const getClientOrders = async (clientId: number): Promise<Order[]> => {
 export interface CreatePaymentInput {
   orderId: number;
   amount: number;
-  paymentMethod: 'cash' | 'wave';
+  method: 'cash' | 'wave';
 }
 
 export interface Payment {
   id: number;
   orderId: number;
   amount: number;
-  paymentMethod: 'cash' | 'wave';
+  method: 'cash' | 'wave';
   createdBy: number;
   createdAt: Date | string;
 }
@@ -110,4 +155,25 @@ export const addItemsToOrder = async (
     itemsData
   );
   return response.order;
+};
+
+export interface AddOrderSupplementsInput {
+  supplements: Array<{
+    supplementId: number;
+    supplementName: string;
+    supplementPrice: number;
+    quantity: number;
+  }>;
+}
+
+export const addOrderSupplements = async (
+  orderId: number,
+  orderItemId: number,
+  supplementsData: AddOrderSupplementsInput
+): Promise<{ success: boolean }> => {
+  const response = await apiClient.post<{ success: boolean }>(
+    `/orders/${orderId}/items/${orderItemId}/supplements`,
+    supplementsData
+  );
+  return response;
 };

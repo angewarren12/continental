@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import { z } from 'zod';
 import User from '../models/User';
 import { jwtConfig } from '../config/jwt';
@@ -47,16 +47,14 @@ router.post('/signup', async (req: Request, res: Response) => {
       phoneNumber: formattedPhone,
       passwordHash,
       name: validatedData.name,
-      email: validatedData.email || null,
+      email: validatedData.email || undefined,
       role: validatedData.role,
       totalSpent: 0,
     });
     console.log('[SIGNUP] User created:', user.id);
 
     // Générer le token JWT
-    const token = jwt.sign({ userId: user.id }, jwtConfig.secret, {
-      expiresIn: jwtConfig.expiresIn,
-    });
+    const token = jwt.sign({ userId: user.id }, jwtConfig.secret as string, { expiresIn: jwtConfig.expiresIn } as SignOptions);
 
     // Retourner l'utilisateur (sans le mot de passe)
     const userResponse = {
@@ -112,9 +110,7 @@ router.post('/login', async (req: Request, res: Response) => {
     }
 
     // Générer le token JWT
-    const token = jwt.sign({ userId: user.id }, jwtConfig.secret, {
-      expiresIn: jwtConfig.expiresIn,
-    });
+    const token = jwt.sign({ userId: user.id }, jwtConfig.secret as string, { expiresIn: jwtConfig.expiresIn } as SignOptions);
 
     // Retourner l'utilisateur (sans le mot de passe)
     const userResponse = {

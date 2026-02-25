@@ -9,7 +9,7 @@ export interface OrderAttributes {
   totalAmount: number;
   status: 'pending' | 'preparing' | 'ready' | 'completed' | 'cancelled';
   paymentStatus: 'pending' | 'paid' | 'failed';
-  paymentMethod?: 'cash' | 'wave';
+  method?: 'cash' | 'wave';
   tableNumber?: string;
   createdBy: number;
   createdAt?: Date;
@@ -25,7 +25,7 @@ class Order extends Model<OrderAttributes, OrderCreationAttributes> implements O
   public totalAmount!: number;
   public status!: 'pending' | 'preparing' | 'ready' | 'completed' | 'cancelled';
   public paymentStatus!: 'pending' | 'paid' | 'failed';
-  public paymentMethod?: 'cash' | 'card' | 'mobile';
+  public method?: 'cash' | 'wave';
   public tableNumber?: string;
   public createdBy!: number;
   public readonly createdAt!: Date;
@@ -70,7 +70,7 @@ Order.init(
       defaultValue: 'pending',
       field: 'payment_status',
     },
-    paymentMethod: {
+    method: {
       type: DataTypes.ENUM('cash', 'wave'),
       allowNull: true,
       field: 'payment_method',

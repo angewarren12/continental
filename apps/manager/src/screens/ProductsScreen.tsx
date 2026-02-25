@@ -44,6 +44,7 @@ import {
   deleteProduct,
 } from '@shared/api/products';
 import { getCategories } from '@shared/api/categories';
+import { updateStock } from '@shared/api/stock';
 import { Product, ProductCategory, ProductType, ProductCreateInput } from '@shared/types/product';
 import { Category } from '@shared/types/category';
 import AnimatedCard from '../components/animations/AnimatedCard';
@@ -52,6 +53,8 @@ import PageTransition from '../components/ui/PageTransition';
 import { designTokens } from '../design-tokens';
 import ProductImageUpload from '../components/products/ProductImageUpload';
 import CategorySelector from '../components/products/CategorySelector';
+import SupplementSelector from '../components/products/SupplementSelector';
+import DishSupplementsManager from '../components/products/DishSupplementsManager';
 import { staggerContainer, staggerItem } from '../constants/animations';
 
 const ProductsScreen: React.FC = () => {
@@ -64,18 +67,21 @@ const ProductsScreen: React.FC = () => {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<number | null>(null);
   const [selectedMainCategory, setSelectedMainCategory] = useState<ProductCategory>('drink');
+  const [openSupplementDialog, setOpenSupplementDialog] = useState(false);
+  const [selectedProductForSupplements, setSelectedProductForSupplements] = useState<Product | null>(null);
   const [formData, setFormData] = useState<ProductCreateInput>({
     name: '',
-    category: 'drink',
     categoryId: undefined,
-    type: 'beer',
+    productType: undefined,
     imageUrl: undefined,
     description: '',
     price: 0,
-    hasStock: false,
-    stockQuantity: 0,
-    unit: '',
+    stockUnit: undefined,
+    saleUnit: undefined,
+    conversionFactor: undefined,
+    supplements: [],
   });
+  const [hasSupplements, setHasSupplements] = useState(false);
 
   useEffect(() => {
     loadCategories();
@@ -88,22 +94,45 @@ const ProductsScreen: React.FC = () => {
 
   const loadCategories = async () => {
     try {
-      const allCategories = await getCategories();
+      // Charger les catégories filtrées selon la catégorie principale sélectionnée
+      const allCategories = await getCategories(selectedMainCategory);
       setCategories(allCategories);
     } catch (err: any) {
       console.error('Error loading categories:', err);
     }
   };
 
+  useEffect(() => {
+    loadCategories();
+  }, [selectedMainCategory]);
+
   const loadProducts = async () => {
     setLoading(true);
     try {
-      const filters: any = { category: selectedMainCategory };
+      const filters: any = {};
       if (selectedCategoryFilter) {
         filters.categoryId = selectedCategoryFilter;
       }
       const allProducts = await getProducts(filters);
-      setProducts(allProducts);
+      
+      // Filtrer selon l'onglet sélectionné et la catégorie principale
+      let filteredProducts = allProducts;
+      if (selectedMainCategory === 'food') {
+        // Pour l'onglet Plats, afficher tous les produits de type dish
+        filteredProducts = allProducts.filter(p => p.productType === 'dish');
+      } else if (selectedMainCategory === 'drink') {
+        // Pour l'onglet Boissons, afficher les boissons, cigarettes et œufs
+        filteredProducts = allProducts.filter(p => 
+          p.productType === 'drink' || 
+          p.productType === 'cigarette' || 
+          p.productType === 'egg'
+        );
+      } else if (selectedMainCategory === 'service') {
+        // Pour l'onglet Services, afficher tous les services
+        filteredProducts = allProducts.filter(p => p.productType === 'service');
+      }
+      
+      setProducts(filteredProducts);
     } catch (err: any) {
       setError(err.message || 'Erreur lors du chargement des produits');
     } finally {
@@ -113,35 +142,63 @@ const ProductsScreen: React.FC = () => {
 
   const handleOpenDialog = (product?: Product) => {
     if (product) {
+      console.log('EDITING PRODUCT:', product);
+      console.log('PRODUCT SUPPLEMENTS:', product.supplements);
       setEditingProduct(product);
+      const supplements = product.supplements || [];
+      console.log('PARSED SUPPLEMENTS:', supplements);
+      setHasSupplements(supplements.length > 0);
       setFormData({
         name: product.name,
-        category: product.category,
         categoryId: product.categoryId || undefined,
-        type: product.type,
+        productType: product.productType,
         imageUrl: product.imageUrl || undefined,
         description: product.description || '',
         price: product.price,
-        hasStock: product.hasStock,
-        stockQuantity: product.stockQuantity || 0,
-        unit: product.unit || '',
+        stockUnit: product.stockUnit,
+        saleUnit: product.saleUnit,
+        conversionFactor: product.conversionFactor,
+        supplements: supplements,
       });
     } else {
       setEditingProduct(null);
+      setHasSupplements(false);
+      // Déterminer le productType par défaut selon la catégorie
+      let defaultProductType: ProductType | undefined;
+      if (selectedMainCategory === 'food') {
+        defaultProductType = 'dish';
+      } else if (selectedMainCategory === 'drink') {
+        defaultProductType = 'drink';
+      } else if (selectedMainCategory === 'service') {
+        defaultProductType = 'service';
+      }
+      
       setFormData({
         name: '',
-        category: selectedMainCategory,
         categoryId: selectedCategoryFilter || undefined,
-        type: selectedMainCategory === 'drink' ? 'beer' : selectedMainCategory === 'food' ? 'spaghetti' : 'billiard_table', // Valeur par défaut basée sur la catégorie
+        productType: defaultProductType,
         imageUrl: undefined,
         description: '',
         price: 0,
-        hasStock: false,
-        stockQuantity: 0,
-        unit: '',
+        stockUnit: undefined,
+        saleUnit: undefined,
+        conversionFactor: undefined,
+        supplements: [],
       });
     }
     setOpenDialog(true);
+  };
+
+  const handleOpenSupplementDialog = (product: Product) => {
+    setSelectedProductForSupplements(product);
+    setOpenSupplementDialog(true);
+  };
+
+  const handleSupplementsSelected = () => {
+    // Recharger les produits pour voir les changements
+    loadProducts();
+    setOpenSupplementDialog(false);
+    setSelectedProductForSupplements(null);
   };
 
   const handleCloseDialog = () => {
@@ -163,18 +220,68 @@ const ProductsScreen: React.FC = () => {
     setError(null);
 
     try {
+      // Déterminer automatiquement le productType selon la catégorie principale
+      const productType: ProductType = 
+        selectedMainCategory === 'food' ? 'dish' : 
+        selectedMainCategory === 'drink' ? 'drink' : 
+        'service';
+
       if (editingProduct) {
-        // Lors de la modification, ne pas modifier le stock (géré depuis la vue stock)
-        await updateProduct(editingProduct.id, {
+        // Lors de la modification, inclure productType et suppléments
+        const updateData: any = {
           name: formData.name,
-          categoryId: formData.categoryId || null,
-          imageUrl: formData.imageUrl || null,
-          description: formData.description || null,
+          categoryId: formData.categoryId || undefined,
+          imageUrl: formData.imageUrl || undefined,
+          description: formData.description || undefined,
           price: formData.price,
+          productType: productType,
           isActive: true,
-        });
+        };
+        
+        // Ajouter les suppléments si c'est un plat
+        if (formData.productType === 'dish' && hasSupplements && formData.supplements && formData.supplements.length > 0) {
+          updateData.supplements = formData.supplements;
+        } else if (formData.productType === 'dish') {
+          // Si hasSupplements est false ou si supplements est vide, supprimer tous les suppléments
+          updateData.supplements = [];
+        }
+        
+        console.log('[UPDATE PRODUCT] Update data with supplements:', JSON.stringify(updateData, null, 2));
+        await updateProduct(editingProduct.id, updateData);
       } else {
-        await createProduct(formData);
+        // Pour la création, inclure productType et suppléments
+        const productData: ProductCreateInput = {
+          name: formData.name,
+          categoryId: formData.categoryId || undefined,
+          imageUrl: formData.imageUrl || undefined,
+          description: formData.description || undefined,
+          price: formData.price,
+          productType: productType,
+        };
+        
+        // Gérer les suppléments : les envoyer seulement si productType est dish et il y a des suppléments
+        if (productType === 'dish' && formData.supplements && formData.supplements.length > 0) {
+          productData.supplements = formData.supplements;
+        } else {
+          productData.supplements = [];
+        }
+        
+        console.log('[CREATE PRODUCT] Product data with supplements:', JSON.stringify(productData, null, 2));
+        const createdProduct = await createProduct(productData);
+        
+        // Créer automatiquement un stock à 0 pour les produits qui nécessitent un stock
+        // (tout sauf les produits de type dish)
+        if (productType !== 'dish' && createdProduct && createdProduct.id) {
+          try {
+            await updateStock(createdProduct.id, {
+              productId: createdProduct.id,
+              quantity: 0,
+              type: 'adjustment'
+            });
+          } catch (stockError) {
+            console.warn('Erreur lors de la création du stock:', stockError);
+          }
+        }
       }
       await loadProducts();
       handleCloseDialog();
@@ -202,24 +309,28 @@ const ProductsScreen: React.FC = () => {
   };
 
   const productTypes: Record<ProductCategory, ProductType[]> = {
-    food: ['spaghetti', 'roasted_chicken'],
-    drink: ['beer', 'wine'],
-    service: ['billiard_table', 'room_500'],
+    food: ['dish'],
+    drink: ['drink'],
+    service: ['service'],
   };
 
   const getImageUrl = (imageUrl?: string) => {
     if (!imageUrl) return null;
     if (imageUrl.startsWith('http')) return imageUrl;
     // Les images sont servies directement depuis le serveur, pas via /api
-    const BASE_URL = import.meta.env.VITE_API_URL 
-      ? import.meta.env.VITE_API_URL.replace('/api', '')
+    // @ts-ignore - Vite injects import.meta.env at build time
+    const BASE_URL = (import.meta as any)?.env?.VITE_API_URL 
+      ? (import.meta as any).env.VITE_API_URL.replace('/api', '')
       : 'http://localhost:3002';
     // S'assurer que imageUrl commence par /
     const cleanImageUrl = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
     return `${BASE_URL}${cleanImageUrl}`;
   };
 
-  const drinkCategories = categories.filter((cat) => cat.isActive);
+  // Filtrer les catégories selon la catégorie principale sélectionnée
+  const filteredCategories = categories.filter((cat) => 
+    cat.isActive && (!cat.mainCategory || cat.mainCategory === selectedMainCategory)
+  );
 
   return (
     <PageTransition>
@@ -252,7 +363,10 @@ const ProductsScreen: React.FC = () => {
       <Box sx={{ mb: 3 }}>
         <Tabs
           value={selectedMainCategory}
-          onChange={(_, newValue) => setSelectedMainCategory(newValue)}
+          onChange={(_, newValue) => {
+            setSelectedMainCategory(newValue);
+            setSelectedCategoryFilter(null); // Réinitialiser le filtre de catégorie lors du changement d'onglet
+          }}
           sx={{
             mb: 2,
             '& .MuiTab-root': {
@@ -272,7 +386,7 @@ const ProductsScreen: React.FC = () => {
           <Tab label="Services" value="service" />
         </Tabs>
 
-        {selectedMainCategory === 'drink' && drinkCategories.length > 0 && (
+        {filteredCategories.length > 0 && (
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
             <Chip
               label="Toutes"
@@ -283,7 +397,7 @@ const ProductsScreen: React.FC = () => {
                 cursor: 'pointer',
               }}
             />
-            {drinkCategories.map((category) => (
+            {filteredCategories.map((category) => (
               <Chip
                 key={category.id}
                 label={category.name}
@@ -430,11 +544,25 @@ const ProductsScreen: React.FC = () => {
                               </Typography>
                               {product.hasStock && (
                                 <Typography variant="body2" sx={{ color: '#666666' }}>
-                                  Stock: {product.stockQuantity || 0} {product.unit || ''}
+                                  Stock disponible
                                 </Typography>
                               )}
                             </Box>
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                              {product.productType === 'dish' && (
+                                <IconButton
+                                  onClick={() => handleOpenSupplementDialog(product)}
+                                  sx={{
+                                    color: '#9C27B0',
+                                    '&:hover': {
+                                      backgroundColor: 'rgba(156, 39, 176, 0.1)',
+                                    },
+                                  }}
+                                  title="Gérer les suppléments"
+                                >
+                                  <AddIcon />
+                                </IconButton>
+                              )}
                               <IconButton
                                 onClick={() => handleOpenDialog(product)}
                                 sx={{
@@ -522,26 +650,35 @@ const ProductsScreen: React.FC = () => {
               },
             }}
           />
-          <TextField
-            fullWidth
-            label="Description"
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            margin="normal"
-            multiline
-            rows={3}
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                borderRadius: 2,
-              },
-            }}
-          />
-          {formData.category === 'drink' && drinkCategories.length > 0 && (
+          {/* Catégorie (sous-catégorie) - affichée pour toutes les catégories principales */}
+          {filteredCategories.length > 0 && (
             <CategorySelector
-              categories={drinkCategories}
+              categories={filteredCategories}
               value={formData.categoryId || null}
               onChange={(categoryId) => setFormData({ ...formData, categoryId: categoryId || undefined })}
-              label="Catégorie de boisson"
+              label={
+                selectedMainCategory === 'food' ? 'Catégorie de plat' :
+                selectedMainCategory === 'drink' ? 'Catégorie de boisson' :
+                'Catégorie de service'
+              }
+            />
+          )}
+          
+          {/* Description - uniquement pour les services */}
+          {formData.productType === 'service' && (
+            <TextField
+              fullWidth
+              label="Description"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              margin="normal"
+              multiline
+              rows={3}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                },
+              }}
             />
           )}
           <TextField
@@ -561,64 +698,53 @@ const ProductsScreen: React.FC = () => {
               },
             }}
           />
-          {!editingProduct && (
-            <>
+          {/* Pour les plats : case "Ce plat peut avoir des suppléments" */}
+          {formData.productType === 'dish' && (
+            <Box sx={{ mt: 2 }}>
               <FormControlLabel
                 control={
                   <Switch
-                    checked={formData.hasStock}
-                    onChange={(e) => setFormData({ ...formData, hasStock: e.target.checked })}
+                    checked={hasSupplements}
+                    onChange={(e) => {
+                      setHasSupplements(e.target.checked);
+                      if (!e.target.checked) {
+                        setFormData({ ...formData, supplements: [] });
+                      }
+                    }}
                     sx={{
                       '& .MuiSwitch-switchBase.Mui-checked': {
-                        color: '#bd0f3b',
+                        color: '#9C27B0',
                       },
                       '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                        backgroundColor: '#bd0f3b',
+                        backgroundColor: '#9C27B0',
                       },
                     }}
                   />
                 }
-                label="Gérer le stock"
-                sx={{ mt: 2 }}
+                label="Ce plat peut avoir des suppléments"
               />
-              {formData.hasStock && (
-                <>
-                  <TextField
-                    fullWidth
-                    label="Quantité en stock"
-                    type="number"
-                    value={formData.stockQuantity}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        stockQuantity: parseInt(e.target.value) || 0,
-                      })
-                    }
-                    margin="normal"
-                    inputProps={{ min: 0 }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: 2,
-                      },
+              {selectedMainCategory === 'food' && (
+                <Box sx={{ mt: 2, p: 2, border: '1px solid red', backgroundColor: '#fff9c4' }}>
+                  <Typography variant="body2" sx={{ mb: 2, color: '#666' }}>
+                    DEBUG: Catégorie FOOD détectée - Le composant devrait s'afficher
+                  </Typography>
+                  <DishSupplementsManager
+                    supplements={formData.supplements || []}
+                    onChange={(supplements) => {
+                      console.log('Supplements changed:', supplements);
+                      setFormData({ ...formData, supplements });
+                      // Activer hasSupplements automatiquement si des suppléments sont ajoutés
+                      if (supplements.length > 0) {
+                        setHasSupplements(true);
+                      }
                     }}
                   />
-                  <TextField
-                    fullWidth
-                    label="Unité (ex: bouteille, verre)"
-                    value={formData.unit}
-                    onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                    margin="normal"
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: 2,
-                      },
-                    }}
-                  />
-                </>
+                </Box>
               )}
-            </>
+            </Box>
           )}
-        </DialogContent>
+
+          </DialogContent>
         <DialogActions>
           <Button
             onClick={handleCloseDialog}
@@ -649,6 +775,20 @@ const ProductsScreen: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Dialog pour gérer les suppléments */}
+      {selectedProductForSupplements && (
+        <SupplementSelector
+          productId={selectedProductForSupplements.id}
+          productName={selectedProductForSupplements.name}
+          onSupplementsSelected={handleSupplementsSelected}
+          onClose={() => {
+            setOpenSupplementDialog(false);
+            setSelectedProductForSupplements(null);
+          }}
+          open={openSupplementDialog}
+        />
+      )}
       </Box>
     </PageTransition>
   );

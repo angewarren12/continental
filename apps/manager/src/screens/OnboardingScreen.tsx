@@ -2,7 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Box, Typography, Button, IconButton } from '@mui/material';
 import { Close, ArrowForward, Inventory2, ReceiptLong } from '@mui/icons-material';
-import OnboardingSlide from '../components/onboarding/OnboardingSlide';
+// import OnboardingSlide from '../components/onboarding/OnboardingSlide'; // Component not found - using inline component
 import OnboardingPagination from '../components/onboarding/OnboardingPagination';
 import { useOnboarding } from '../hooks/useOnboarding';
 
@@ -79,7 +79,7 @@ const OnboardingScreen: React.FC = () => {
     <Box
       sx={{
         minHeight: '100vh',
-        backgroundColor: '#D4C4B0', // Marron clair
+        backgroundColor: '#000000', // Noir
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',
@@ -103,7 +103,7 @@ const OnboardingScreen: React.FC = () => {
           position: 'absolute',
           inset: 0,
           background:
-            'linear-gradient(to bottom, transparent 0%, rgba(212, 196, 176, 0.4) 50%, rgba(212, 196, 176, 0.9) 100%)',
+            'linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.4) 50%, rgba(0, 0, 0, 0.9) 100%)',
         }}
       />
 

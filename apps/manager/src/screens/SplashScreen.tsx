@@ -66,7 +66,7 @@ const SplashScreen: React.FC = () => {
     <Box
       sx={{
         minHeight: '100vh',
-        backgroundColor: '#D4C4B0', // Marron clair
+        backgroundColor: '#000000', // Noir
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',

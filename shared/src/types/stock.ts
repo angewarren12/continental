@@ -4,6 +4,9 @@ export interface Stock {
   id: number;
   productId: number;
   quantity: number;
+  quantityPackets?: number;
+  quantityUnits?: number;
+  quantityPlates?: number;
   lastUpdated: Date | string;
   updatedBy: number;
 }
@@ -22,7 +25,10 @@ export interface StockMovement {
 
 export interface StockUpdateInput {
   productId: number;
-  quantity: number;
+  quantity?: number;
+  quantityPackets?: number;
+  quantityUnits?: number;
+  quantityPlates?: number;
   type: StockMovementType;
   orderId?: number;
 }

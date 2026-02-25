@@ -3,7 +3,7 @@ import { Button, ButtonProps } from '@mui/material';
 import { motion } from 'framer-motion';
 import { designTokens } from '../../design-tokens';
 
-interface ModernButtonProps extends ButtonProps {
+interface ModernButtonProps extends Omit<ButtonProps, 'variant'> {
   variant?: 'primary' | 'secondary' | 'outline';
   fullWidth?: boolean;
 }

@@ -101,7 +101,7 @@ router.post('/', requireManager, async (req: AuthRequest, res: Response) => {
       phoneNumber: formattedPhone,
       passwordHash,
       name: validatedData.name,
-      email: validatedData.email || null,
+      email: validatedData.email || undefined,
       role: 'client',
       totalSpent: 0,
     });
@@ -158,7 +158,10 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       delete (validatedData as any).totalSpent;
     }
 
-    await user.update(validatedData);
+    await user.update({
+      ...validatedData,
+      email: validatedData.email || undefined,
+    });
 
     const userResponse = {
       id: user.id,

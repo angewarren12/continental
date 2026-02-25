@@ -59,7 +59,7 @@ import {
 } from '@shared/api/stock';
 import { getProducts, createProduct, updateProduct } from '@shared/api/products';
 import { getCategories } from '@shared/api/categories';
-import { ProductCreateInput, ProductType } from '@shared/types/product';
+import { ProductCreateInput, ProductTypeEnum, StockUnit, SaleUnit } from '@shared/types/product';
 import ProductImageUpload from '../components/products/ProductImageUpload';
 import CategorySelector from '../components/products/CategorySelector';
 import { Stock } from '@shared/types/stock';
@@ -108,15 +108,14 @@ const StockScreen: React.FC = () => {
   });
   const [productFormData, setProductFormData] = useState<ProductCreateInput>({
     name: '',
-    category: 'drink',
     categoryId: undefined,
-    type: 'beer',
+    productType: 'dish',
     imageUrl: undefined,
     description: '',
     price: 0,
-    hasStock: true,
-    stockQuantity: 0,
-    unit: 'bouteille',
+    stockUnit: undefined,
+    saleUnit: undefined,
+    conversionFactor: undefined,
   });
 
   useEffect(() => {
@@ -142,6 +141,8 @@ const StockScreen: React.FC = () => {
 
   const loadCategories = async () => {
     try {
+      // Charger toutes les catégories (pas de filtre par mainCategory pour le stock)
+      // car on veut voir tous les produits avec stock, peu importe leur catégorie principale
       const allCategories = await getCategories();
       setCategories(allCategories);
     } catch (err: any) {
@@ -157,14 +158,14 @@ const StockScreen: React.FC = () => {
         filters.categoryId = selectedCategoryFilter;
       }
       const allStocks = await getAllStocks(filters);
-      const allProducts = await getProducts({ category: 'drink', categoryId: selectedCategoryFilter || undefined });
+      const allProducts = await getProducts({ categoryId: selectedCategoryFilter || undefined });
 
       const stocksWithProducts = allStocks
         .map((stock) => {
           const product = allProducts.find((p) => p.id === stock.productId);
           return { ...stock, product };
         })
-        .filter((s) => s.product);
+        .filter((s) => s.product && s.product.productType !== 'dish'); // Exclure les plats seulement
 
       setAllStocks(stocksWithProducts);
       
@@ -225,18 +226,42 @@ const StockScreen: React.FC = () => {
         }
       }
 
-      await updateStock(selectedStock.productId, {
+      const product = selectedStock.product;
+      const updateData: any = {
         productId: selectedStock.productId,
-        quantity: newQuantity,
         type: adjustmentType,
-      });
+      };
+
+      // Gérer selon le type de produit
+      if (product?.productType === 'cigarette') {
+        // Pour cigarettes: utiliser quantityUnits
+        if (adjustmentType === 'restock') {
+          const currentUnits = (selectedStock.quantityPackets || 0) * (product.conversionFactor || 20) + (selectedStock.quantityUnits || 0);
+          updateData.quantityUnits = currentUnits + adjustmentQuantity;
+        } else {
+          updateData.quantityUnits = adjustmentQuantity;
+        }
+      } else if (product?.productType === 'egg') {
+        // Pour œufs: utiliser quantityUnits
+        if (adjustmentType === 'restock') {
+          const currentUnits = (selectedStock.quantityPlates || 0) * (product.conversionFactor || 30) + (selectedStock.quantityUnits || 0);
+          updateData.quantityUnits = currentUnits + adjustmentQuantity;
+        } else {
+          updateData.quantityUnits = adjustmentQuantity;
+        }
+      } else {
+        // Pour les autres produits: utiliser quantity standard
+        updateData.quantity = newQuantity;
+      }
+
+      await updateStock(selectedStock.productId, updateData);
       await loadStocks();
       handleCloseDialog();
       setSnackbar({
         open: true,
         message: adjustmentType === 'restock' 
-          ? `Réapprovisionnement réussi ! ${adjustmentQuantity} ${selectedStock.product?.unit || ''} ajouté(s). Nouvelle quantité: ${newQuantity} ${selectedStock.product?.unit || ''}`
-          : `Stock mis à jour avec succès ! Nouvelle quantité: ${newQuantity} ${selectedStock.product?.unit || ''}`,
+          ? `Réapprovisionnement réussi ! ${adjustmentQuantity} ${selectedStock.product?.stockUnit || 'unité'} ajouté(s). Nouvelle quantité: ${newQuantity} ${selectedStock.product?.stockUnit || 'unité'}`
+          : `Stock mis à jour avec succès ! Nouvelle quantité: ${newQuantity} ${selectedStock.product?.stockUnit || 'unité'}`,
         severity: 'success',
       });
     } catch (err: any) {
@@ -301,7 +326,9 @@ const StockScreen: React.FC = () => {
       );
 
       const quantitySold = salesSinceRestock.reduce((sum, m) => sum + m.quantity, 0);
-      const revenueGenerated = quantitySold * (stock.product?.price || 0);
+      // Trouver le produit correspondant pour obtenir le prix
+      const product = stocks.find((s) => s.productId === stock.productId)?.product;
+      const revenueGenerated = quantitySold * (product?.price || 0);
       
       const now = new Date();
       const daysSinceLastRestock = Math.floor(
@@ -358,7 +385,7 @@ const StockScreen: React.FC = () => {
 
   const getStockStatus = (quantity: number, product?: Product) => {
     if (!product) return { color: '#666666', label: 'N/A', percentage: 0 };
-    const maxStock = product.stockQuantity || 100;
+    const maxStock = 100; // Valeur par défaut car stockQuantity n'existe plus
     const percentage = (quantity / maxStock) * 100;
 
     if (quantity === 0) return { color: '#DC143C', label: 'Rupture', percentage: 0 };
@@ -373,30 +400,28 @@ const StockScreen: React.FC = () => {
       setEditingProduct(product);
       setProductFormData({
         name: product.name,
-        category: product.category,
         categoryId: product.categoryId,
-        type: product.type,
+        productType: product.productType,
         imageUrl: product.imageUrl,
         description: product.description || '',
         price: product.price,
-        hasStock: product.hasStock,
-        stockQuantity: product.stockQuantity || 0,
-        unit: product.unit || 'bouteille',
+        stockUnit: product.stockUnit,
+        saleUnit: product.saleUnit,
+        conversionFactor: product.conversionFactor,
       });
     } else {
       // Mode création
       setEditingProduct(null);
       setProductFormData({
         name: '',
-        category: 'drink',
-        categoryId: selectedCategoryFilter || undefined,
-        type: 'beer',
+        categoryId: undefined,
+        productType: 'dish',
         imageUrl: undefined,
         description: '',
         price: 0,
-        hasStock: true,
-        stockQuantity: 0,
-        unit: 'bouteille',
+        stockUnit: undefined,
+        saleUnit: undefined,
+        conversionFactor: undefined,
       });
     }
     setOpenProductDialog(true);
@@ -420,10 +445,11 @@ const StockScreen: React.FC = () => {
       // Nettoyer les données avant l'envoi : convertir undefined en null et enlever les chaînes vides
       const cleanedData: ProductCreateInput = {
         name: productFormData.name.trim(),
-        category: productFormData.category,
-        type: productFormData.category === 'drink' ? 'beer' : productFormData.category === 'food' ? 'spaghetti' : 'billiard_table', // Valeur par défaut basée sur la catégorie
+        productType: productFormData.productType || 'dish',
         price: productFormData.price,
-        hasStock: productFormData.hasStock,
+        stockUnit: productFormData.stockUnit,
+        saleUnit: productFormData.saleUnit,
+        conversionFactor: productFormData.conversionFactor,
         // Ne pas envoyer imageUrl si c'est undefined ou une chaîne vide
         ...(productFormData.imageUrl && productFormData.imageUrl.trim() 
           ? { imageUrl: productFormData.imageUrl.trim() } 
@@ -434,14 +460,6 @@ const StockScreen: React.FC = () => {
           : {}),
         // Ne pas envoyer categoryId si c'est undefined
         ...(productFormData.categoryId ? { categoryId: productFormData.categoryId } : {}),
-        // Envoyer stockQuantity seulement si hasStock est true (même si c'est 0)
-        ...(productFormData.hasStock
-          ? { stockQuantity: productFormData.stockQuantity !== undefined ? productFormData.stockQuantity : 0 } 
-          : {}),
-        // Ne pas envoyer unit si c'est undefined ou une chaîne vide
-        ...(productFormData.unit && productFormData.unit.trim() 
-          ? { unit: productFormData.unit.trim() } 
-          : {}),
       };
 
       if (editingProduct) {
@@ -496,11 +514,11 @@ const StockScreen: React.FC = () => {
   };
 
   // Type de boisson supprimé - on garde seulement la catégorie
-  const productTypes: Record<'drink', ProductType[]> = {
+  const productTypes: Record<'drink', ProductTypeEnum[]> = {
     drink: ['beer', 'wine'],
   };
 
-  const drinkCategories = categories.filter((cat) => cat.isActive);
+  const activeCategories = categories.filter((cat) => cat.isActive);
 
   return (
     <PageTransition>
@@ -738,7 +756,7 @@ const StockScreen: React.FC = () => {
             <Button
               variant="contained"
               startIcon={<AddIcon />}
-              onClick={handleOpenProductDialog}
+              onClick={() => handleOpenProductDialog()}
               size="large"
               sx={{
                 backgroundColor: '#bd0f3b',
@@ -775,8 +793,9 @@ const StockScreen: React.FC = () => {
                 if (!imageUrl) return null;
                 if (imageUrl.startsWith('http')) return imageUrl;
                 // Les images sont servies directement depuis le serveur, pas via /api
-                const BASE_URL = import.meta.env.VITE_API_URL 
-                  ? import.meta.env.VITE_API_URL.replace('/api', '')
+                // @ts-ignore - Vite injects import.meta.env at build time
+                const BASE_URL = (import.meta as any)?.env?.VITE_API_URL 
+                  ? (import.meta as any).env.VITE_API_URL.replace('/api', '')
                   : 'http://localhost:3002';
                 return `${BASE_URL}${imageUrl}`;
               };
@@ -923,7 +942,10 @@ const StockScreen: React.FC = () => {
                               {stock.product && (
                                 <IconButton
                                   size="small"
-                                  onClick={() => handleOpenProductDialog(stock.product)}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    handleOpenProductDialog(stock.product);
+                                  }}
                                   sx={{
                                     color: '#DC143C',
                                     backgroundColor: 'rgba(220, 20, 60, 0.1)',
@@ -962,7 +984,32 @@ const StockScreen: React.FC = () => {
                                     fontSize: '1.1rem',
                                   }}
                                 >
-                                  {stock.quantity} {stock.product?.unit || ''}
+                                  {(() => {
+                                    const product = stock.product;
+                                    if (product?.productType === 'cigarette') {
+                                      const packets = stock.quantityPackets || 0;
+                                      const units = stock.quantityUnits || 0;
+                                      if (packets > 0 && units > 0) {
+                                        return `${packets} paquet${packets > 1 ? 's' : ''} (${units} cigarettes)`;
+                                      } else if (packets > 0) {
+                                        return `${packets} paquet${packets > 1 ? 's' : ''}`;
+                                      } else {
+                                        return `${units} cigarette${units > 1 ? 's' : ''}`;
+                                      }
+                                    } else if (product?.productType === 'egg') {
+                                      const plates = stock.quantityPlates || 0;
+                                      const units = stock.quantityUnits || 0;
+                                      if (plates > 0 && units > 0) {
+                                        return `${plates} plaquette${plates > 1 ? 's' : ''} (${units} œufs)`;
+                                      } else if (plates > 0) {
+                                        return `${plates} plaquette${plates > 1 ? 's' : ''}`;
+                                      } else {
+                                        return `${units} œuf${units > 1 ? 's' : ''}`;
+                                      }
+                                    } else {
+                                      return `${stock.quantity} ${stock.product?.stockUnit || 'unité'}`;
+                                    }
+                                  })()}
                                 </Typography>
                               </Box>
                               <Box sx={{ position: 'relative' }}>
@@ -1207,7 +1254,7 @@ const StockScreen: React.FC = () => {
               Quantité actuelle
             </Typography>
             <Typography variant="h6" sx={{ color: '#000000', fontWeight: 700 }}>
-              {selectedStock?.quantity || 0} {selectedStock?.product?.unit || 'unité'}(s)
+              {selectedStock?.quantity || 0} {selectedStock?.product?.stockUnit || 'unité'}(s)
             </Typography>
           </Box>
 
@@ -1219,7 +1266,7 @@ const StockScreen: React.FC = () => {
             onChange={(e) => setAdjustmentQuantity(parseInt(e.target.value) || 0)}
             margin="normal"
             inputProps={{ min: 1 }}
-            helperText={`Nouvelle quantité totale: ${(selectedStock?.quantity || 0) + adjustmentQuantity} ${selectedStock?.product?.unit || 'unité'}(s)`}
+            helperText={`Nouvelle quantité totale: ${(selectedStock?.quantity || 0) + adjustmentQuantity} ${selectedStock?.product?.stockUnit || 'unité'}(s)`}
             sx={{
               '& .MuiOutlinedInput-root': {
                 borderRadius: 2,
@@ -1476,7 +1523,7 @@ const StockScreen: React.FC = () => {
                         {salesAnalysis.quantitySold}
                       </Typography>
                       <Typography variant="caption" sx={{ color: '#666666' }}>
-                        {selectedStock?.product?.unit || 'unité'}(s) depuis le dernier réapprovisionnement
+                        {selectedStock?.product?.stockUnit || 'unité'}(s) depuis le dernier réapprovisionnement
                       </Typography>
                     </CardContent>
                   </Card>
@@ -1514,7 +1561,7 @@ const StockScreen: React.FC = () => {
                         {salesAnalysis.averageDailySales.toFixed(1)}
                       </Typography>
                       <Typography variant="caption" sx={{ color: '#666666' }}>
-                        {selectedStock?.product?.unit || 'unité'}(s) par jour en moyenne
+                        {selectedStock?.product?.stockUnit || 'unité'}(s) par jour en moyenne
                       </Typography>
                     </CardContent>
                   </Card>
@@ -1567,8 +1614,8 @@ const StockScreen: React.FC = () => {
                       Dans environ {salesAnalysis.estimatedDaysUntilNextRestock} jour{salesAnalysis.estimatedDaysUntilNextRestock > 1 ? 's' : ''}
                     </Typography>
                     <Typography variant="body2" sx={{ color: '#666666' }}>
-                      Basé sur la vente moyenne de {salesAnalysis.averageDailySales.toFixed(1)} {selectedStock?.product?.unit || 'unité'}(s)/jour
-                      et le stock actuel de {selectedStock?.quantity} {selectedStock?.product?.unit || 'unité'}(s)
+                      Basé sur la vente moyenne de {salesAnalysis.averageDailySales.toFixed(1)} {selectedStock?.product?.stockUnit || 'unité'}(s)/jour
+                      et le stock actuel de {selectedStock?.quantity} {selectedStock?.product?.stockUnit || 'unité'}(s)
                     </Typography>
                   </CardContent>
                 </Card>
@@ -1752,10 +1799,10 @@ const StockScreen: React.FC = () => {
                   </Typography>
                 </Box>
                 <Grid container spacing={2}>
-                  {drinkCategories.length > 0 && (
+                  {activeCategories.length > 0 && (
                     <Grid item xs={12} sm={6}>
                       <CategorySelector
-                        categories={drinkCategories}
+                        categories={activeCategories}
                         value={productFormData.categoryId || null}
                         onChange={(categoryId) => setProductFormData({ ...productFormData, categoryId: categoryId || undefined })}
                         label="Catégorie"
@@ -1836,88 +1883,53 @@ const StockScreen: React.FC = () => {
                         Gestion du stock
                       </Typography>
                     </Box>
-                    <Box sx={{ mb: 2 }}>
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            checked={productFormData.hasStock}
-                            onChange={(e) => setProductFormData({ ...productFormData, hasStock: e.target.checked })}
-                            sx={{
-                              '& .MuiSwitch-switchBase.Mui-checked': {
-                                color: '#bd0f3b',
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Unité de stock"
+                          value={productFormData.stockUnit || ''}
+                          onChange={(e) =>
+                            setProductFormData({
+                              ...productFormData,
+                              stockUnit: e.target.value as StockUnit,
+                            })
+                          }
+                          helperText="Unité de stock (packet, unit, plate)"
+                          sx={{
+                            '& .MuiOutlinedInput-root': {
+                              borderRadius: 2,
+                              '&:hover fieldset': {
+                                borderColor: '#bd0f3b',
                               },
-                              '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                                backgroundColor: '#bd0f3b',
+                              '&.Mui-focused fieldset': {
+                                borderColor: '#bd0f3b',
                               },
-                            }}
-                          />
-                        }
-                        label={
-                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                            Activer la gestion du stock pour ce produit
-                          </Typography>
-                        }
-                      />
-                    </Box>
-                    {productFormData.hasStock && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.3 }}
-                      >
-                        <Grid container spacing={2}>
-                          <Grid item xs={12} sm={6}>
-                            <TextField
-                              fullWidth
-                              label="Quantité initiale"
-                              type="number"
-                              value={productFormData.stockQuantity || 0}
-                              onChange={(e) =>
-                                setProductFormData({
-                                  ...productFormData,
-                                  stockQuantity: parseInt(e.target.value) || 0,
-                                })
-                              }
-                              inputProps={{ min: 0 }}
-                              helperText="Quantité disponible en stock"
-                              sx={{
-                                '& .MuiOutlinedInput-root': {
-                                  borderRadius: 2,
-                                  '&:hover fieldset': {
-                                    borderColor: '#bd0f3b',
-                                  },
-                                  '&.Mui-focused fieldset': {
-                                    borderColor: '#bd0f3b',
-                                  },
-                                },
-                              }}
-                            />
-                          </Grid>
-                          <Grid item xs={12} sm={6}>
-                            <TextField
-                              fullWidth
-                              label="Unité de mesure"
-                              value={productFormData.unit || ''}
-                              onChange={(e) => setProductFormData({ ...productFormData, unit: e.target.value })}
-                              placeholder="Ex: bouteille, verre, litre"
-                              helperText="Unité utilisée pour ce produit"
-                              sx={{
-                                '& .MuiOutlinedInput-root': {
-                                  borderRadius: 2,
-                                  '&:hover fieldset': {
-                                    borderColor: '#bd0f3b',
-                                  },
-                                  '&.Mui-focused fieldset': {
-                                    borderColor: '#bd0f3b',
-                                  },
-                                },
-                              }}
-                            />
-                          </Grid>
-                        </Grid>
-                      </motion.div>
-                    )}
+                            },
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Unité de vente"
+                          value={productFormData.saleUnit || ''}
+                          onChange={(e) => setProductFormData({ ...productFormData, saleUnit: e.target.value as SaleUnit })}
+                          helperText="Unité de vente (packet, unit, plate)"
+                          sx={{
+                            '& .MuiOutlinedInput-root': {
+                              borderRadius: 2,
+                              '&:hover fieldset': {
+                                borderColor: '#bd0f3b',
+                              },
+                              '&.Mui-focused fieldset': {
+                                borderColor: '#bd0f3b',
+                              },
+                            },
+                          }}
+                        />
+                      </Grid>
+                    </Grid>
                   </Box>
                 </motion.div>
               </>

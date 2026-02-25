@@ -7,37 +7,49 @@ interface SectionTitleProps {
   title: string;
   subtitle?: string;
   delay?: number;
+  action?: React.ReactNode;
 }
 
-const SectionTitle: React.FC<SectionTitleProps> = ({ title, subtitle, delay = 0 }) => {
+const SectionTitle: React.FC<SectionTitleProps> = ({ title, subtitle, delay = 0, action }) => {
   return (
     <motion.div
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay, ease: [0.4, 0, 0.2, 1] }}
     >
-      <Box sx={{ mb: 3 }}>
-        <Typography
-          variant="h4"
-          sx={{
-            fontWeight: 700,
-            color: designTokens.colors.text.primary,
-            fontSize: designTokens.typography.h4.fontSize,
-            mb: subtitle ? 0.5 : 0,
-          }}
-        >
-          {title}
-        </Typography>
-        {subtitle && (
+      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+        <Box>
           <Typography
-            variant="body2"
+            variant="h4"
             sx={{
-              color: designTokens.colors.text.secondary,
-              fontWeight: 500,
+              fontWeight: 700,
+              color: designTokens.colors.text.primary,
+              fontSize: designTokens.typography.h4.fontSize,
+              mb: subtitle ? 0.5 : 0,
             }}
           >
-            {subtitle}
+            {title}
           </Typography>
+          {subtitle && (
+            <Typography
+              variant="body2"
+              sx={{
+                color: designTokens.colors.text.secondary,
+                fontWeight: 500,
+              }}
+            >
+              {subtitle}
+            </Typography>
+          )}
+        </Box>
+        {action && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3, delay: delay + 0.1, ease: [0.4, 0, 0.2, 1] }}
+          >
+            {action}
+          </motion.div>
         )}
       </Box>
     </motion.div>

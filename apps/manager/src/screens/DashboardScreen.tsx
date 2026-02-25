@@ -35,6 +35,7 @@ import {
   Restaurant as RestaurantIcon,
   Payment as PaymentIcon,
   Add as AddIcon,
+  LocalDining as LocalDiningIcon,
 } from '@mui/icons-material';
 import { getOrders } from '@shared/api/orders';
 import { getAllStocks } from '@shared/api/stock';
@@ -49,6 +50,7 @@ import { staggerContainer, staggerItem, slideUp } from '../constants/animations'
 import { designTokens } from '../design-tokens';
 import { Order, PaymentStatus } from '@shared/types/order';
 import { Stock } from '@shared/types/stock';
+import { Product } from '@shared/types/product';
 
 
 const DashboardScreen: React.FC = () => {
@@ -62,9 +64,12 @@ const DashboardScreen: React.FC = () => {
     totalClients: 0,
     preparingOrders: 0,
     readyOrders: 0,
+    todayDishesOrdered: 0,
   });
+  const [topDishes, setTopDishes] = useState<Array<{ name: string; count: number }>>([]);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
-  const [lowStockProducts, setLowStockProducts] = useState<Stock[]>([]);
+  const [lowStockProducts, setLowStockProducts] = useState<Array<Stock & { productName?: string; product?: Product }>>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -111,11 +116,48 @@ const DashboardScreen: React.FC = () => {
       // Paiements en attente
       const pendingPayments = orders.filter((o) => o.paymentStatus === 'pending').length;
 
-      // Stock faible (moins de 10 unités)
-      const lowStock = stocks.filter((s) => s.quantity < 10);
+      // Stock faible (moins de 10 unités) - adapter selon le type de produit
+      const lowStock = stocks.filter((s) => {
+        const product = products.find((p) => p.id === s.productId);
+        if (!product) return false;
+        
+        let totalQuantity = s.quantity;
+        if (product.productType === 'cigarette') {
+          const packets = s.quantityPackets || 0;
+          const units = s.quantityUnits || 0;
+          totalQuantity = packets * (product.conversionFactor || 20) + units;
+        } else if (product.productType === 'egg') {
+          const plates = s.quantityPlates || 0;
+          const units = s.quantityUnits || 0;
+          totalQuantity = plates * (product.conversionFactor || 30) + units;
+        }
+        
+        return totalQuantity < 10;
+      });
 
       // Clients
       const totalClients = users.filter((u) => u.role === 'client').length;
+
+      // Calculer les plats commandés aujourd'hui
+      const dishCounts = new Map<string, number>();
+      let todayDishesOrdered = 0;
+      
+      todayOrders.forEach((order) => {
+        order.items?.forEach((item: any) => {
+          const product = products.find((p) => p.id === item.productId);
+          if (product?.productType === 'dish' && !item.isSupplement) {
+            todayDishesOrdered += item.quantity;
+            const currentCount = dishCounts.get(item.productName) || 0;
+            dishCounts.set(item.productName, currentCount + item.quantity);
+          }
+        });
+      });
+
+      // Top 5 plats commandés aujourd'hui
+      const topDishesArray = Array.from(dishCounts.entries())
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
 
       // Commandes récentes (5 dernières)
       const recent = orders
@@ -130,14 +172,18 @@ const DashboardScreen: React.FC = () => {
         totalClients,
         preparingOrders,
         readyOrders,
+        todayDishesOrdered,
       });
+
+      setTopDishes(topDishesArray);
+      setProducts(products);
 
       setRecentOrders(recent);
       setLowStockProducts(
         lowStock
           .map((s) => {
             const product = products.find((p) => p.id === s.productId);
-            return { ...s, productName: product?.name || 'Produit inconnu' };
+            return { ...s, productName: product?.name || 'Produit inconnu', product };
           })
           .slice(0, 5)
       );
@@ -196,6 +242,13 @@ const DashboardScreen: React.FC = () => {
       icon: <PersonIcon />,
       color: designTokens.colors.status.info,
       onClick: () => navigate('/clients'),
+    },
+    {
+      title: 'Plats commandés',
+      value: stats.todayDishesOrdered,
+      icon: <LocalDiningIcon />,
+      color: '#9C27B0',
+      subtitle: 'Aujourd\'hui',
     },
   ];
 
@@ -361,6 +414,79 @@ const DashboardScreen: React.FC = () => {
         </Grid>
       </motion.div>
 
+      {/* Plats les plus commandés */}
+      {topDishes.length > 0 && (
+        <motion.div
+          variants={slideUp}
+          initial="initial"
+          animate="animate"
+          transition={{ delay: 0.5 }}
+        >
+          <AnimatedCard delay={0.5} sx={{ mt: 3, borderRadius: designTokens.borderRadius.large, backgroundColor: designTokens.colors.background.paper, boxShadow: designTokens.shadows.card }}>
+            <CardContent sx={{ p: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6" sx={{ fontWeight: 700, color: designTokens.colors.text.primary }}>
+                  Plats les plus commandés aujourd'hui
+                </Typography>
+                <LocalDiningIcon sx={{ color: '#9C27B0', fontSize: 28 }} />
+              </Box>
+              <Divider sx={{ mb: 2 }} />
+              <List sx={{ p: 0 }}>
+                {topDishes.map((dish, index) => (
+                  <ListItem
+                    key={dish.name}
+                    sx={{
+                      px: 0,
+                      py: 1.5,
+                      borderRadius: 2,
+                      backgroundColor: '#FFFFFF',
+                      mb: 1,
+                    }}
+                  >
+                    <ListItemIcon>
+                      <Box
+                        sx={{
+                          p: 1,
+                          borderRadius: 2,
+                          backgroundColor: '#9C27B015',
+                          color: '#9C27B0',
+                          fontWeight: 700,
+                          minWidth: 32,
+                          textAlign: 'center',
+                        }}
+                      >
+                        {index + 1}
+                      </Box>
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={
+                        <Typography variant="body1" sx={{ fontWeight: 600, color: '#000000' }}>
+                          {dish.name}
+                        </Typography>
+                      }
+                      secondary={
+                        <Typography variant="body2" sx={{ color: '#666666', mt: 0.5 }}>
+                          {dish.count} commande{dish.count > 1 ? 's' : ''}
+                        </Typography>
+                      }
+                    />
+                    <Chip
+                      label={`${dish.count}×`}
+                      size="small"
+                      sx={{
+                        bgcolor: '#9C27B0',
+                        color: '#FFFFFF',
+                        fontWeight: 700,
+                      }}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            </CardContent>
+          </AnimatedCard>
+        </motion.div>
+      )}
+
       {/* Commandes récentes et Stock faible */}
       <Grid container spacing={3} sx={{ mt: 1 }}>
         {/* Commandes récentes */}
@@ -499,7 +625,35 @@ const DashboardScreen: React.FC = () => {
                 ) : (
                   <List sx={{ p: 0 }}>
                     {lowStockProducts.map((stock, index) => {
-                      const percentage = (stock.quantity / 10) * 100;
+                      const product = products.find((p) => p.id === stock.productId);
+                      let totalQuantity = stock.quantity;
+                      let displayText = `${stock.quantity} unités`;
+                      
+                      if (product?.productType === 'cigarette') {
+                        const packets = stock.quantityPackets || 0;
+                        const units = stock.quantityUnits || 0;
+                        totalQuantity = packets * (product.conversionFactor || 20) + units;
+                        if (packets > 0 && units > 0) {
+                          displayText = `${packets} paquet${packets > 1 ? 's' : ''} (${units} cigarettes)`;
+                        } else if (packets > 0) {
+                          displayText = `${packets} paquet${packets > 1 ? 's' : ''}`;
+                        } else {
+                          displayText = `${units} cigarettes`;
+                        }
+                      } else if (product?.productType === 'egg') {
+                        const plates = stock.quantityPlates || 0;
+                        const units = stock.quantityUnits || 0;
+                        totalQuantity = plates * (product.conversionFactor || 30) + units;
+                        if (plates > 0 && units > 0) {
+                          displayText = `${plates} plaquette${plates > 1 ? 's' : ''} (${units} œufs)`;
+                        } else if (plates > 0) {
+                          displayText = `${plates} plaquette${plates > 1 ? 's' : ''}`;
+                        } else {
+                          displayText = `${units} œufs`;
+                        }
+                      }
+                      
+                      const percentage = (totalQuantity / 10) * 100;
                       return (
                         <React.Fragment key={stock.productId}>
                           <ListItem sx={{ px: 0, py: 1.5, backgroundColor: '#FFFFFF', '&:hover': { backgroundColor: '#F5F5F5' } }}>
@@ -525,7 +679,7 @@ const DashboardScreen: React.FC = () => {
                                 <Box component="div" sx={{ mt: 1 }}>
                                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                                     <Typography variant="caption" component="span" sx={{ color: '#666666' }}>
-                                      Stock: {stock.quantity} unités
+                                      Stock: {displayText}
                                     </Typography>
                                     <Typography variant="caption" component="span" sx={{ color: '#DC143C', fontWeight: 600 }}>
                                       {percentage.toFixed(0)}%

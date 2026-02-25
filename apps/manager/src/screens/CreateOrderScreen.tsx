@@ -46,7 +46,10 @@ import { getCategories } from '@shared/api/categories';
 import { getUserByPhone, getAllUsers, createClient } from '@shared/api/users';
 import { createOrder } from '@shared/api/orders';
 import { createPayment } from '@shared/api/orders';
+import { getProductSupplements } from '@shared/api/product-supplements';
 import { Product } from '@shared/types/product';
+import SupplementDialog from '../components/orders/SupplementDialog';
+import { Stock } from '@shared/types/stock';
 import { Category } from '@shared/types/category';
 import { OrderItem } from '@shared/types/order';
 import { User } from '@shared/types/user';
@@ -55,6 +58,7 @@ import { staggerContainer, staggerItem, slideUp, scale } from '../constants/anim
 import SectionTitle from '../components/ui/SectionTitle';
 import PageTransition from '../components/ui/PageTransition';
 import { designTokens } from '../design-tokens';
+import SupplementSelector from '../components/products/SupplementSelector';
 
 type WizardStep = 'products' | 'client' | 'payment';
 
@@ -70,6 +74,11 @@ const CreateOrderScreen: React.FC = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [openQuantityDialog, setOpenQuantityDialog] = useState(false);
+  const [openSupplementDialog, setOpenSupplementDialog] = useState(false);
+  const [selectedPlatForSupplement, setSelectedPlatForSupplement] = useState<{ product: Product; itemIndex: number } | null>(null);
+  const [openNewSupplementDialog, setOpenNewSupplementDialog] = useState(false);
+  const [orderItemsSupplements, setOrderItemsSupplements] = useState<{ [key: number]: any[] }>({});
+  const [saleUnit, setSaleUnit] = useState<'unit' | 'packet' | 'plate'>('unit');
   const [openClientDialog, setOpenClientDialog] = useState(false);
   const [openAddClientDialog, setOpenAddClientDialog] = useState(false);
   const [clientSearchTerm, setClientSearchTerm] = useState('');
@@ -83,12 +92,27 @@ const CreateOrderScreen: React.FC = () => {
   const [paymentAmount, setPaymentAmount] = useState<string>('');
   const [createdOrderId, setCreatedOrderId] = useState<number | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [stocks, setStocks] = useState<Stock[]>([]);
 
   useEffect(() => {
     loadProducts();
     loadCategories();
     loadClients();
+    loadStocks();
   }, []);
+
+  const loadStocks = async () => {
+    try {
+      const allStocks = await getAllStocks();
+      setStocks(allStocks);
+    } catch (err: any) {
+      console.error('Erreur lors du chargement des stocks:', err);
+    }
+  };
+
+  const getProductStock = (productId: number) => {
+    return stocks.find((s) => s.productId === productId);
+  };
 
   const loadProducts = async () => {
     try {
@@ -100,7 +124,7 @@ const CreateOrderScreen: React.FC = () => {
         const stock = allStocks.find((s) => s.productId === product.id);
         return {
           ...product,
-          stockQuantity: stock ? stock.quantity : (product.stockQuantity || 0),
+          stockQuantity: stock ? stock.quantity : 0,
           hasStock: stock ? stock.quantity > 0 : (product.hasStock || false),
         };
       });
@@ -145,34 +169,103 @@ const CreateOrderScreen: React.FC = () => {
   });
 
   const handleProductClick = (product: Product) => {
+    // Vérifier si le produit a un stock de 0 (sauf pour les plats)
+    const stock = getProductStock(product.id);
+    if (product.productType !== 'dish' && stock && stock.quantity === 0) {
+      return; // Ne pas ouvrir le dialogue si le produit est en rupture
+    }
+    
     setSelectedProduct(product);
     setQuantity(1);
-    setOpenQuantityDialog(true);
+    
+    // Si c'est un produit food avec suppléments, ouvrir le nouveau dialogue de suppléments
+    if (product.productType === 'dish' && product.supplements && product.supplements.length > 0) {
+      setOpenNewSupplementDialog(true);
+    } else {
+      setOpenQuantityDialog(true);
+    }
   };
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (!selectedProduct) return;
 
-    if (selectedProduct.hasStock && selectedProduct.stockQuantity !== undefined) {
-      const currentInCart = orderItems
-        .filter((item) => item.productId === selectedProduct.id)
-        .reduce((sum, item) => sum + item.quantity, 0);
+    // Récupérer le stock actuel du produit
+    const stock = getProductStock(selectedProduct.id);
 
-      if (currentInCart + quantity > selectedProduct.stockQuantity) {
-        setError(
-          `Stock insuffisant. Disponible: ${selectedProduct.stockQuantity - currentInCart}`
-        );
-        return;
+    // Vérifier le stock selon le type de produit
+    if (selectedProduct.hasStock && stock && stock.quantity !== undefined) {
+      try {
+        // Pour cigarettes et œufs, récupérer le stock réel depuis l'API
+        if (selectedProduct.productType === 'cigarette' || selectedProduct.productType === 'egg') {
+          const { getStock } = await import('@shared/api/stock');
+          const stock = await getStock(selectedProduct.id);
+          
+          if (stock) {
+            let availableUnits = 0;
+            if (selectedProduct.productType === 'cigarette') {
+              const packets = stock.quantityPackets || 0;
+              const units = stock.quantityUnits || 0;
+              availableUnits = packets * (selectedProduct.conversionFactor || 20) + units;
+            } else if (selectedProduct.productType === 'egg') {
+              const plates = stock.quantityPlates || 0;
+              const units = stock.quantityUnits || 0;
+              availableUnits = plates * (selectedProduct.conversionFactor || 30) + units;
+            }
+
+            const currentInCart = orderItems
+              .filter((item) => item.productId === selectedProduct.id && !item.isSupplement)
+              .reduce((sum, item) => sum + item.quantity, 0);
+
+            const requestedQuantity = saleUnit === 'packet' && selectedProduct.productType === 'cigarette'
+              ? quantity * (selectedProduct.conversionFactor || 20)
+              : quantity;
+
+            if (currentInCart + requestedQuantity > availableUnits) {
+              setError(
+                `Stock insuffisant. Disponible: ${availableUnits - currentInCart} ${selectedProduct.productType === 'cigarette' ? 'cigarettes' : 'œufs'}`
+              );
+              return;
+            }
+          }
+        } else {
+          // Pour les autres produits avec stock
+          const currentInCart = orderItems
+            .filter((item) => item.productId === selectedProduct.id && !item.isSupplement)
+            .reduce((sum, item) => sum + item.quantity, 0);
+
+          if (stock && currentInCart + quantity > stock.quantity) {
+            setError(
+              `Stock insuffisant. Disponible: ${stock?.quantity || 0} - ${currentInCart}`
+            );
+            return;
+          }
+        }
+      } catch (err: any) {
+        console.error('Erreur lors de la vérification du stock:', err);
+        // Continuer quand même, le backend vérifiera
       }
     }
 
+    // Calculer la quantité et le prix selon l'unité de vente
+    let finalQuantity = quantity;
+    let finalPrice = Number(selectedProduct.price);
+
+    if (selectedProduct.productType === 'cigarette' && saleUnit === 'packet') {
+      finalQuantity = quantity;
+      finalPrice = (selectedProduct.conversionFactor || 20) * Number(selectedProduct.price); // Prix du paquet
+    } else if (selectedProduct.productType === 'egg') {
+      // Les œufs sont toujours vendus à l'unité
+      finalQuantity = quantity;
+      finalPrice = Number(selectedProduct.price);
+    }
+
     const existingItemIndex = orderItems.findIndex(
-      (item) => item.productId === selectedProduct.id
+      (item) => item.productId === selectedProduct.id && !item.isSupplement
     );
 
     if (existingItemIndex >= 0) {
       const updatedItems = [...orderItems];
-      updatedItems[existingItemIndex].quantity += quantity;
+      updatedItems[existingItemIndex].quantity += finalQuantity;
       updatedItems[existingItemIndex].totalPrice =
         updatedItems[existingItemIndex].quantity * updatedItems[existingItemIndex].unitPrice;
       setOrderItems(updatedItems);
@@ -180,9 +273,9 @@ const CreateOrderScreen: React.FC = () => {
       const newItem: OrderItem = {
         productId: selectedProduct.id,
         productName: selectedProduct.name,
-        quantity,
-        unitPrice: Number(selectedProduct.price),
-        totalPrice: quantity * Number(selectedProduct.price),
+        quantity: finalQuantity,
+        unitPrice: finalPrice,
+        totalPrice: finalQuantity * finalPrice,
       };
       setOrderItems([...orderItems, newItem]);
     }
@@ -190,18 +283,179 @@ const CreateOrderScreen: React.FC = () => {
     setOpenQuantityDialog(false);
     setSelectedProduct(null);
     setQuantity(1);
+    setSaleUnit('unit');
     setError(null);
   };
 
+  const handleAddSupplements = async (supplements: Product[]) => {
+    if (!selectedPlatForSupplement) return;
+    
+    const updatedItems = [...orderItems];
+    
+    // Ajouter le plat principal
+    const platItem: OrderItem = {
+      productId: selectedPlatForSupplement.product.id,
+      productName: selectedPlatForSupplement.product.name,
+      unitPrice: selectedPlatForSupplement.product.price,
+      quantity: 1,
+      isSupplement: false,
+      totalPrice: selectedPlatForSupplement.product.price,
+    } as OrderItem;
+    
+    if (selectedPlatForSupplement.itemIndex >= 0) {
+      updatedItems[selectedPlatForSupplement.itemIndex] = platItem;
+    } else {
+      updatedItems.push(platItem);
+    }
+    
+    setOrderItems(updatedItems);
+    setOpenSupplementDialog(false);
+    setSelectedPlatForSupplement(null);
+  };
+
+  const handleSupplementConfirm = (quantity: number, selectedSupplements: any[]) => {
+    if (!selectedPlatForSupplement) return;
+    
+    // Calculer le prix des suppléments pour UNE unité
+    const supplementsPricePerUnit = selectedSupplements.reduce((sum: number, sup: any) => sum + (sup.supplement_price || 0), 0);
+    
+    // Calculer le prix total : (plat + suppléments) * quantité
+    const totalPrice = (selectedPlatForSupplement.product.price + supplementsPricePerUnit) * quantity;
+    
+    const platItem: OrderItem = {
+      productId: selectedPlatForSupplement.product.id,
+      productName: selectedPlatForSupplement.product.name,
+      unitPrice: selectedPlatForSupplement.product.price, // Garder le prix unitaire du plat
+      quantity: quantity,
+      isSupplement: false,
+      totalPrice: totalPrice,
+    } as OrderItem;
+    
+    const updatedItems = [...orderItems];
+    
+    if (selectedPlatForSupplement.itemIndex >= 0) {
+      updatedItems[selectedPlatForSupplement.itemIndex] = platItem;
+    } else {
+      updatedItems.push(platItem);
+    }
+    
+    // Multiplier les suppléments par la quantité
+    const multipliedSupplements: any[] = [];
+    for (let i = 0; i < quantity; i++) {
+      selectedSupplements.forEach((supplement) => {
+        multipliedSupplements.push({
+          ...supplement,
+          quantity: 1, // Chaque supplément est pour une unité
+        });
+      });
+    }
+    
+    // Mettre à jour les suppléments pour cet item
+    const itemIndex = selectedPlatForSupplement.itemIndex >= 0 ? selectedPlatForSupplement.itemIndex : updatedItems.length - 1;
+    const newOrderItemsSupplements = { ...orderItemsSupplements };
+    newOrderItemsSupplements[itemIndex] = multipliedSupplements;
+    setOrderItemsSupplements(newOrderItemsSupplements);
+    
+    setOrderItems(updatedItems);
+    setOpenSupplementDialog(false);
+    setSelectedPlatForSupplement(null);
+  };
+
+  const handleNewSupplementConfirm = (quantity: number, selectedSupplements: any[]) => {
+    if (!selectedProduct) return;
+    
+    // Calculer le prix des suppléments pour UNE unité
+    const supplementsPricePerUnit = selectedSupplements.reduce((sum: number, sup: any) => sum + (sup.supplement_price || 0), 0);
+    
+    // Calculer le prix total : (plat + suppléments) * quantité
+    const totalPrice = (selectedProduct.price + supplementsPricePerUnit) * quantity;
+    
+    const newItem: OrderItem = {
+      productId: selectedProduct.id,
+      productName: selectedProduct.name,
+      unitPrice: selectedProduct.price, // Garder le prix unitaire du plat
+      quantity: quantity,
+      isSupplement: false,
+      totalPrice: totalPrice,
+    };
+    
+    const newItemIndex = orderItems.length;
+    setOrderItems([...orderItems, newItem]);
+    
+    // Multiplier les suppléments par la quantité
+    const multipliedSupplements: any[] = [];
+    for (let i = 0; i < quantity; i++) {
+      selectedSupplements.forEach((supplement) => {
+        multipliedSupplements.push({
+          ...supplement,
+          quantity: 1, // Chaque supplément est pour une unité
+        });
+      });
+    }
+    
+    setOrderItemsSupplements({
+      ...orderItemsSupplements,
+      [newItemIndex]: multipliedSupplements
+    });
+    setOpenNewSupplementDialog(false);
+    setSelectedProduct(null);
+    setQuantity(1);
+  };
+
   const handleRemoveItem = (index: number) => {
-    setOrderItems(orderItems.filter((_, i) => i !== index));
+    const newOrderItems = orderItems.filter((_, i) => i !== index);
+    setOrderItems(newOrderItems);
+    
+    // Supprimer aussi les suppléments associés
+    const newOrderItemsSupplements = { ...orderItemsSupplements };
+    delete newOrderItemsSupplements[index];
+    
+    // Réindexer les suppléments restants
+    const reindexedSupplements: { [key: number]: any[] } = {};
+    Object.keys(newOrderItemsSupplements).forEach((key, newIndex) => {
+      const oldIndex = parseInt(key);
+      if (oldIndex > index) {
+        reindexedSupplements[newIndex - 1] = newOrderItemsSupplements[oldIndex];
+      } else {
+        reindexedSupplements[newIndex] = newOrderItemsSupplements[oldIndex];
+      }
+    });
+    
+    setOrderItemsSupplements(reindexedSupplements);
   };
 
   const handleUpdateQuantity = (index: number, newQuantity: number) => {
     if (newQuantity < 1) return;
     const updatedItems = [...orderItems];
+    const item = updatedItems[index];
+    
+    // Récupérer les suppléments actuels
+    const itemSupplements = orderItemsSupplements[index] || [];
+    
+    // Calculer le prix des suppléments pour UNE unité
+    const supplementsPricePerUnit = itemSupplements.reduce((sum: number, sup: any) => sum + (sup.supplement_price || 0), 0);
+    
+    // Mettre à jour la quantité et le prix total
     updatedItems[index].quantity = newQuantity;
-    updatedItems[index].totalPrice = newQuantity * updatedItems[index].unitPrice;
+    updatedItems[index].totalPrice = (item.unitPrice + supplementsPricePerUnit) * newQuantity;
+    
+    // Multiplier les suppléments par la nouvelle quantité
+    if (itemSupplements.length > 0) {
+      const multipliedSupplements: any[] = [];
+      for (let i = 0; i < newQuantity; i++) {
+        itemSupplements.forEach((supplement: any) => {
+          multipliedSupplements.push({
+            ...supplement,
+            quantity: 1,
+          });
+        });
+      }
+      
+      const newOrderItemsSupplements = { ...orderItemsSupplements };
+      newOrderItemsSupplements[index] = multipliedSupplements;
+      setOrderItemsSupplements(newOrderItemsSupplements);
+    }
+    
     setOrderItems(updatedItems);
   };
 
@@ -364,37 +618,184 @@ const CreateOrderScreen: React.FC = () => {
     setError(null);
 
     try {
-      // Créer la commande
-      const newOrder = await createOrder({
-        clientId: clientIdToUse,
-        items: orderItems.map((item) => ({
+      // Créer la commande avec gestion des suppléments
+      console.log('[DEBUG] ===== DÉBUT CRÉATION COMMANDE =====');
+      console.log('[DEBUG] clientId:', clientIdToUse);
+      console.log('[DEBUG] tableNumber:', tableNumber);
+      console.log('[DEBUG] orderItems count:', orderItems.length);
+      console.log('[DEBUG] orderItems:', orderItems);
+      console.log('[DEBUG] orderItemsSupplements:', orderItemsSupplements);
+      
+      // Séparer les items principaux et les suppléments
+      const mainItems: OrderItem[] = [];
+      const supplementItems: Array<OrderItem & { parentItemIndex?: number }> = [];
+      
+      console.log('[DEBUG] orderItemsSupplements avant transformation:', orderItemsSupplements);
+      
+      orderItems.forEach((item, index) => {
+        console.log(`[DEBUG] Traitement item ${index}:`, {
           productId: item.productId,
           productName: item.productName,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
-        })),
+          totalPrice: item.totalPrice,
+          isSupplement: item.isSupplement,
+          parentItemId: item.parentItemId,
+        });
+        
+        if (item.isSupplement && item.parentItemId !== undefined) {
+          // Trouver l'index du parent dans orderItems (avant séparation)
+          // Le parentItemId dans le frontend est l'index du plat parent
+          const parentIndex = typeof item.parentItemId === 'number' ? item.parentItemId : undefined;
+          if (parentIndex !== undefined) {
+            console.log(`[DEBUG] Ajout supplément ${index} avec parentIndex ${parentIndex}`);
+            supplementItems.push({
+              ...item,
+              parentItemIndex: parentIndex, // Utiliser l'index comme référence temporaire
+            });
+          } else {
+            console.log('[DEBUG] ERREUR: parentItemId invalide pour le supplément:', item);
+          }
+        } else {
+          console.log(`[DEBUG] Ajout item principal ${index}:`, item.productName);
+          mainItems.push(item);
+        }
+      });
+
+      // Transformer les suppléments depuis orderItemsSupplements
+      Object.entries(orderItemsSupplements).forEach(([parentIndex, supplements]) => {
+        console.log(`[DEBUG] Traitement suppléments pour parentIndex ${parentIndex}:`, supplements);
+        const parentItem = mainItems[parseInt(parentIndex)];
+        const parentItemId = parentItem?.id || parseInt(parentIndex) + 1; // Utiliser l'ID réel ou fallback
+        
+        supplements.forEach((supplement, supIndex) => {
+          console.log(`[DEBUG] Ajout supplément depuis orderItemsSupplements ${supIndex}:`, supplement);
+          supplementItems.push({
+            ...supplement,
+            parentItemIndex: parseInt(parentIndex),
+            parentItemId: parentItemId, // ← AJOUTÉ: ID réel du parent
+          });
+        });
+      });
+
+      console.log('[DEBUG] Après transformation - mainItems:', mainItems);
+      console.log('[DEBUG] Après transformation - supplementItems:', supplementItems);
+
+      // Créer la commande avec tous les items dans l'ordre (plats d'abord, puis suppléments)
+      const allItems = [
+        ...mainItems.map((item, index) => {
+          const mappedItem = {
+            productId: item.productId,
+            productName: item.productName,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            totalPrice: item.totalPrice, // Inclure le prix total correct avec suppléments
+            isSupplement: false,
+          };
+          console.log(`[DEBUG] Mappage item principal ${index}:`, mappedItem);
+          return mappedItem;
+        }),
+        ...supplementItems.map((item, index) => {
+          const mappedItem = {
+            productId: item.productId,
+            productName: item.productName, // ← CORRIGÉ
+            quantity: item.quantity,
+            unitPrice: item.unitPrice, // ← CORRIGÉ
+            totalPrice: (item.unitPrice || 0) * item.quantity, // ← CORRIGÉ
+            parentItemId: item.parentItemId || (item.parentItemIndex !== undefined ? item.parentItemIndex + 1 : undefined), // ← CORRIGÉ: Vérification undefined
+            isSupplement: true,
+          };
+          console.log(`[DEBUG] Mappage supplément ${index}:`, mappedItem);
+          console.log(`[DEBUG] Vérification supplément ${index}:`, {
+            productId: mappedItem.productId,
+            productName: mappedItem.productName,
+            quantity: mappedItem.quantity,
+            unitPrice: mappedItem.unitPrice,
+            totalPrice: mappedItem.totalPrice,
+            parentItemId: mappedItem.parentItemId,
+            isSupplement: mappedItem.isSupplement,
+          });
+          return mappedItem;
+        }),
+      ];
+
+      console.log('[DEBUG] Main items:', mainItems);
+      console.log('[DEBUG] Supplement items:', supplementItems);
+      console.log('[DEBUG] All items to send:', allItems);
+      
+      // Validation finale avant envoi
+      const invalidItems = allItems.filter(item => 
+        !item.productId || 
+        !item.productName || 
+        !item.quantity || 
+        item.unitPrice === undefined || 
+        isNaN(item.totalPrice)
+      );
+      
+      if (invalidItems.length > 0) {
+        console.error('[DEBUG] ERREUR: Items invalides détectés:', invalidItems);
+        throw new Error(`Données invalides détectées: ${invalidItems.length} items invalides`);
+      }
+      
+      console.log('[DEBUG] Validation OK - Envoi de la commande...');
+      console.log('[DEBUG] Données envoyées:', {
+        clientId: clientIdToUse,
+        items: allItems,
         tableNumber: tableNumber || undefined,
       });
 
+      const newOrder = await createOrder({
+        clientId: clientIdToUse,
+        items: allItems,
+        tableNumber: tableNumber || undefined,
+      });
+
+      console.log('[DEBUG] Commande créée avec succès:', newOrder);
+
       // Créer le paiement (partiel ou total)
       if (amountToPay > 0) {
+        console.log('[DEBUG] Création paiement:', {
+          orderId: newOrder.id,
+          amount: amountToPay,
+          method: paymentMethod,
+        });
         await createPayment({
           orderId: newOrder.id,
           amount: amountToPay,
-          paymentMethod: paymentMethod,
+          method: paymentMethod,
         });
+        console.log('[DEBUG] Paiement créé avec succès');
       }
 
       setCreatedOrderId(newOrder.id);
       setShowSuccess(true);
       setLoading(false);
+      console.log('[DEBUG] ===== FIN CRÉATION COMMANDE - SUCCÈS =====');
     } catch (err: any) {
+      console.error('[DEBUG] ===== ERREUR CRÉATION COMMANDE =====');
+      console.error('[DEBUG] Erreur:', err);
+      console.error('[DEBUG] Message erreur:', err.message);
+      console.error('[DEBUG] Stack trace:', err.stack);
+      
+      // Si c'est une erreur HTTP, essayer de parser la réponse
+      if (err.response) {
+        console.error('[DEBUG] Response status:', err.response.status);
+        console.error('[DEBUG] Response data:', err.response.data);
+      } else if (err.request) {
+        console.error('[DEBUG] Request:', err.request);
+      }
+      
       setError(err.message || 'Erreur lors de la création de la commande');
       setLoading(false);
+      console.log('[DEBUG] ===== FIN ERREUR CRÉATION COMMANDE =====');
     }
   };
 
-  const totalAmount = orderItems.reduce((sum, item) => sum + item.totalPrice, 0);
+  // Calculer le montant total en prenant en compte les suppléments
+  const totalAmount = orderItems.reduce((sum, item) => {
+    // Le prix total de l'item inclut déjà les suppléments multipliés par la quantité
+    return sum + item.totalPrice;
+  }, 0);
   const totalItems = orderItems.reduce((sum, item) => sum + item.quantity, 0);
 
   const steps = [
@@ -540,8 +941,9 @@ const CreateOrderScreen: React.FC = () => {
                   if (!imageUrl) return null;
                   if (imageUrl.startsWith('http')) return imageUrl;
                   // Les images sont servies directement depuis le serveur, pas via /api
-                  const BASE_URL = import.meta.env.VITE_API_URL 
-                    ? import.meta.env.VITE_API_URL.replace('/api', '')
+                  // @ts-ignore - Vite injects import.meta.env at build time
+                  const BASE_URL = (import.meta as any)?.env?.VITE_API_URL 
+                    ? (import.meta as any).env.VITE_API_URL.replace('/api', '')
                     : 'http://localhost:3002';
                   // S'assurer que imageUrl commence par /
                   const cleanImageUrl = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
@@ -588,19 +990,36 @@ const CreateOrderScreen: React.FC = () => {
                               e.target.style.display = 'none';
                             }}
                           />
-                          {product.hasStock && (
+                          {getProductStock(product.id) && product.productType !== 'dish' && (
                             <Chip
-                              label={`Stock: ${product.stockQuantity || 0}`}
+                              label={`Stock: ${getProductStock(product.id)?.quantity || 0}`}
                               size="small"
                               sx={{
                                 position: 'absolute',
                                 top: 8,
                                 right: 8,
-                                bgcolor: '#E8F5E9',
-                                color: '#2E7D32',
+                                bgcolor: getProductStock(product.id)?.quantity === 0 ? '#FFEBEE' : '#E8F5E9',
+                                color: getProductStock(product.id)?.quantity === 0 ? '#C62828' : '#2E7D32',
                                 fontWeight: 600,
                                 fontSize: '0.75rem',
                                 height: 24,
+                                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+                              }}
+                            />
+                          )}
+                          {getProductStock(product.id) && product.productType !== 'dish' && getProductStock(product.id)?.quantity === 0 && (
+                            <Chip
+                              label="Rupture"
+                              size="small"
+                              sx={{
+                                position: 'absolute',
+                                top: 36,
+                                right: 8,
+                                bgcolor: '#FF5252',
+                                color: '#FFFFFF',
+                                fontWeight: 600,
+                                fontSize: '0.7rem',
+                                height: 20,
                                 boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
                               }}
                             />
@@ -620,19 +1039,36 @@ const CreateOrderScreen: React.FC = () => {
                         >
                           <LocalBarIcon sx={{ fontSize: 64, color: '#CCCCCC' }} />
                           <LocalBarIcon sx={{ fontSize: 64, color: '#CCCCCC' }} />
-                          {product.hasStock && (
+                          {getProductStock(product.id) && product.productType !== 'dish' && (
                             <Chip
-                              label={`Stock: ${product.stockQuantity || 0}`}
+                              label={`Stock: ${getProductStock(product.id)?.quantity || 0}`}
                               size="small"
                               sx={{
                                 position: 'absolute',
                                 top: 8,
                                 right: 8,
-                                bgcolor: '#E8F5E9',
-                                color: '#2E7D32',
+                                bgcolor: getProductStock(product.id)?.quantity === 0 ? '#FFEBEE' : '#E8F5E9',
+                                color: getProductStock(product.id)?.quantity === 0 ? '#C62828' : '#2E7D32',
                                 fontWeight: 600,
                                 fontSize: '0.75rem',
                                 height: 24,
+                                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+                              }}
+                            />
+                          )}
+                          {getProductStock(product.id) && product.productType !== 'dish' && getProductStock(product.id)?.quantity === 0 && (
+                            <Chip
+                              label="Rupture"
+                              size="small"
+                              sx={{
+                                position: 'absolute',
+                                top: 36,
+                                right: 8,
+                                bgcolor: '#FF5252',
+                                color: '#FFFFFF',
+                                fontWeight: 600,
+                                fontSize: '0.7rem',
+                                height: 20,
                                 boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
                               }}
                             />
@@ -726,69 +1162,152 @@ const CreateOrderScreen: React.FC = () => {
                   </Box>
                   <Divider sx={{ mb: 1.5 }} />
                   <Box sx={{ maxHeight: 150, overflowY: 'auto' }}>
-                    {orderItems.map((item, index) => (
-                      <Box
-                        key={index}
-                        sx={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          py: 1,
-                          borderBottom: index < orderItems.length - 1 ? '1px solid #F5F5F5' : 'none',
-                        }}
-                      >
-                        <Box sx={{ flex: 1 }}>
-                          <Typography variant="body2" sx={{ fontWeight: 600, color: '#000000', mb: 0.25 }}>
-                            {item.productName}
-                          </Typography>
-                          <Typography variant="caption" sx={{ color: '#666666' }}>
-                            {item.quantity} × {Number(item.unitPrice).toFixed(0)} FCFA
-                          </Typography>
+                    {orderItems.map((item, index) => {
+                      const isSupplement = item.isSupplement;
+                      const isPlat = products.find(p => p.id === item.productId)?.productType === 'dish';
+                      const itemSupplements = orderItemsSupplements[index] || [];
+                      
+                      return (
+                        <Box key={index}>
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              py: 1,
+                              pl: isSupplement ? 3 : 0,
+                              borderBottom: index < orderItems.length - 1 ? '1px solid #F5F5F5' : 'none',
+                              backgroundColor: isSupplement ? '#F9F9F9' : 'transparent',
+                            }}
+                          >
+                            <Box sx={{ flex: 1 }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                {isSupplement && (
+                                  <Typography variant="caption" sx={{ color: '#bd0f3b' }}>
+                                    + 
+                                  </Typography>
+                                )}
+                                <Typography variant="body2" sx={{ fontWeight: 600, color: '#000000', mb: 0.25 }}>
+                                  {item.productName}
+                                </Typography>
+                                {/* Afficher les suppléments si c'est un plat */}
+                                {isPlat && itemSupplements.length > 0 && (
+                                  <Box sx={{ mt: 0.5 }}>
+                                    {/* Grouper les suppléments par nom et compter les quantités */}
+                                    {(() => {
+                                      const supplementCounts: { [key: string]: { count: number; price: number } } = {};
+                                      
+                                      itemSupplements.forEach((sup: any) => {
+                                        const name = sup.supplementName;
+                                        if (supplementCounts[name]) {
+                                          supplementCounts[name].count += 1;
+                                        } else {
+                                          supplementCounts[name] = {
+                                            count: 1,
+                                            price: sup.supplementPrice || 0
+                                          };
+                                        }
+                                      });
+                                      
+                                      return Object.entries(supplementCounts).map(([name, info]) => (
+                                        <Box key={name} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.25 }}>
+                                          <Typography variant="caption" sx={{ color: '#bd0f3b', fontWeight: 700 }}>
+                                            +
+                                          </Typography>
+                                          <Typography variant="caption" sx={{ color: '#666', fontSize: '0.7rem' }}>
+                                            {name}
+                                          </Typography>
+                                          {info.count > 1 && (
+                                            <Chip
+                                              label={`×${info.count}`}
+                                              size="small"
+                                              sx={{
+                                                height: 14,
+                                                fontSize: '0.55rem',
+                                                backgroundColor: '#bd0f3b',
+                                                color: '#FFFFFF',
+                                                fontWeight: 600,
+                                              }}
+                                            />
+                                          )}
+                                        </Box>
+                                      ));
+                                    })()}
+                                  </Box>
+                                )}
+                              </Box>
+                              <Typography variant="caption" sx={{ color: '#666666' }}>
+                                {item.quantity} × {item.unitPrice && !isNaN(item.unitPrice) ? Number(item.unitPrice).toFixed(0) : '0'} FCFA
+                              </Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              {!isSupplement && (
+                                <>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleUpdateQuantity(index, item.quantity - 1)}
+                                    sx={{
+                                      color: '#DC143C',
+                                      '&:hover': {
+                                        backgroundColor: 'rgba(220, 20, 60, 0.1)',
+                                      },
+                                    }}
+                                  >
+                                    <RemoveIcon fontSize="small" />
+                                  </IconButton>
+                                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#000000', minWidth: 24, textAlign: 'center' }}>
+                                    {item.quantity}
+                                  </Typography>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleUpdateQuantity(index, item.quantity + 1)}
+                                    sx={{
+                                      color: '#DC143C',
+                                      '&:hover': {
+                                        backgroundColor: 'rgba(220, 20, 60, 0.1)',
+                                      },
+                                    }}
+                                  >
+                                    <AddCircleIcon fontSize="small" />
+                                  </IconButton>
+                                </>
+                              )}
+                              {isSupplement && (
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleRemoveItem(index)}
+                                  sx={{
+                                    color: '#DC143C',
+                                    ml: 0.5,
+                                    '&:hover': {
+                                      backgroundColor: 'rgba(220, 20, 60, 0.1)',
+                                    },
+                                  }}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              )}
+                              {!isSupplement && (
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleRemoveItem(index)}
+                                  sx={{
+                                    color: '#DC143C',
+                                    ml: 0.5,
+                                    '&:hover': {
+                                      backgroundColor: 'rgba(220, 20, 60, 0.1)',
+                                    },
+                                  }}
+                                  title="Supprimer l'article"
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              )}
+                            </Box>
+                          </Box>
                         </Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <IconButton
-                            size="small"
-                            onClick={() => handleUpdateQuantity(index, item.quantity - 1)}
-                            sx={{
-                              color: '#DC143C',
-                              '&:hover': {
-                                backgroundColor: 'rgba(220, 20, 60, 0.1)',
-                              },
-                            }}
-                          >
-                            <RemoveIcon fontSize="small" />
-                          </IconButton>
-                          <Typography variant="body2" sx={{ fontWeight: 600, color: '#000000', minWidth: 24, textAlign: 'center' }}>
-                            {item.quantity}
-                          </Typography>
-                          <IconButton
-                            size="small"
-                            onClick={() => handleUpdateQuantity(index, item.quantity + 1)}
-                            sx={{
-                              color: '#DC143C',
-                              '&:hover': {
-                                backgroundColor: 'rgba(220, 20, 60, 0.1)',
-                              },
-                            }}
-                          >
-                            <AddCircleIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            onClick={() => handleRemoveItem(index)}
-                            sx={{
-                              color: '#DC143C',
-                              ml: 0.5,
-                              '&:hover': {
-                                backgroundColor: 'rgba(220, 20, 60, 0.1)',
-                              },
-                            }}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Box>
-                      </Box>
-                    ))}
+                      );
+                    })}
                   </Box>
                 </Box>
                 <Button
@@ -984,19 +1503,6 @@ const CreateOrderScreen: React.FC = () => {
                   </Card>
                 )}
 
-                <TextField
-                  label="Numéro de table (optionnel)"
-                  value={tableNumber}
-                  onChange={(e) => setTableNumber(e.target.value)}
-                  fullWidth
-                  sx={{
-                    mb: 3,
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: 2,
-                    },
-                  }}
-                />
-
                 <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
                   <Button
                     variant="outlined"
@@ -1041,43 +1547,97 @@ const CreateOrderScreen: React.FC = () => {
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.3 }}
           >
-            {/* Récapitulatif */}
-            <Paper
-              sx={{
-                p: 3,
-                mb: 3,
-                borderRadius: designTokens.borderRadius.large,
-                backgroundColor: designTokens.colors.background.paper,
-                boxShadow: designTokens.shadows.card,
-              }}
-            >
+           
+
+            {/* Récapitulatif du panier */}
+            <Box sx={{ mb: 3, p: 2, backgroundColor: '#F8F9FA', borderRadius: 2, border: '1px solid #E0E0E0' }}>
               <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, color: designTokens.colors.text.primary }}>
-                Récapitulatif
+                Récapitulatif de la commande
               </Typography>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                <Typography variant="body1" sx={{ color: designTokens.colors.text.secondary }}>
-                  Sous-total
-                </Typography>
-                <Typography variant="body1" sx={{ fontWeight: 600, color: designTokens.colors.text.primary }}>
-                  {totalAmount.toFixed(0)} FCFA
-                </Typography>
+              
+              {orderItems.map((item, index) => {
+                const isSupplement = item.isSupplement;
+                const itemSupplements = orderItemsSupplements[index] || [];
+                
+                return (
+                  <Box key={index} sx={{ mb: 2, pb: 2, borderBottom: index < orderItems.length - 1 ? '1px solid #F0F0F0' : 'none' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#000000', mb: 0.5 }}>
+                          {item.productName}
+                        </Typography>
+                        
+                        {/* Afficher les suppléments si c'est un plat */}
+                        {itemSupplements.length > 0 && (
+                          <Box sx={{ ml: 2 }}>
+                            <Typography variant="caption" sx={{ color: '#666', fontSize: '0.75rem', fontWeight: 600, mb: 1, display: 'block' }}>
+                              Suppléments:
+                            </Typography>
+                            {/* Grouper les suppléments par nom et compter les quantités */}
+                            {(() => {
+                              const supplementCounts: { [key: string]: { count: number; price: number } } = {};
+                              
+                              itemSupplements.forEach((sup: any) => {
+                                const name = sup.supplementName;
+                                if (supplementCounts[name]) {
+                                  supplementCounts[name].count += 1;
+                                } else {
+                                  supplementCounts[name] = {
+                                    count: 1,
+                                    price: sup.supplementPrice || 0
+                                  };
+                                }
+                              });
+                              
+                              return Object.entries(supplementCounts).map(([name, info]) => (
+                                <Box key={name} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                                  <Typography variant="caption" sx={{ color: '#bd0f3b', fontWeight: 700 }}>
+                                    +
+                                  </Typography>
+                                  <Typography variant="caption" sx={{ color: '#666', fontSize: '0.7rem' }}>
+                                    {name}
+                                  </Typography>
+                                  {info.count > 1 && (
+                                    <Chip
+                                      label={`×${info.count}`}
+                                      size="small"
+                                      sx={{
+                                        height: 16,
+                                        fontSize: '0.6rem',
+                                        backgroundColor: '#bd0f3b',
+                                        color: '#FFFFFF',
+                                        fontWeight: 600,
+                                      }}
+                                    />
+                                  )}
+                                  <Typography variant="caption" sx={{ color: '#999', fontSize: '0.65rem' }}>
+                                    ({(info.price * info.count).toFixed(0)} FCFA)
+                                  </Typography>
+                                </Box>
+                              ));
+                            })()}
+                          </Box>
+                        )}
+                      </Box>
+                      
+                      <Box sx={{ textAlign: 'right' }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#DC143C' }}>
+                          {item.quantity} × {item.unitPrice && !isNaN(item.unitPrice) ? Number(item.unitPrice).toFixed(0) : '0'} FCFA
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+                );
+              })}
+              
+              <Box sx={{ mt: 2, pt: 2, borderTop: '2px solid #E0E0E0' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: designTokens.colors.text.primary }}>
+                    Total: {totalAmount.toFixed(0)} FCFA
+                  </Typography>
+                </Box>
               </Box>
-              <Divider sx={{ my: 1.5 }} />
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="h6" sx={{ fontWeight: 700, color: designTokens.colors.text.primary }}>
-                  Total à payer
-                </Typography>
-                <Typography
-                  variant="h5"
-                  sx={{
-                    fontWeight: 700,
-                    color: designTokens.colors.primary.main,
-                  }}
-                >
-                  {totalAmount.toFixed(0)} FCFA
-                </Typography>
-              </Box>
-            </Paper>
+            </Box>
 
             {/* Méthode de paiement */}
             <Box sx={{ mb: 3 }}>
@@ -1351,8 +1911,49 @@ const CreateOrderScreen: React.FC = () => {
         </DialogTitle>
         <DialogContent>
           <Box sx={{ textAlign: 'center', py: 2 }}>
+            {/* Sélection d'unité pour cigarettes */}
+            {selectedProduct?.productType === 'cigarette' && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" sx={{ color: '#FFFFFF', mb: 1 }}>
+                  Vendre par:
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                  <Button
+                    variant={saleUnit === 'unit' ? 'contained' : 'outlined'}
+                    onClick={() => setSaleUnit('unit')}
+                    size="small"
+                    sx={{
+                      bgcolor: saleUnit === 'unit' ? '#DC143C' : 'transparent',
+                      color: '#FFFFFF',
+                      borderColor: '#FFFFFF',
+                      '&:hover': { bgcolor: saleUnit === 'unit' ? '#B71C1C' : 'rgba(255, 255, 255, 0.1)' },
+                    }}
+                  >
+                    Unité (100 FCFA)
+                  </Button>
+                  <Button
+                    variant={saleUnit === 'packet' ? 'contained' : 'outlined'}
+                    onClick={() => setSaleUnit('packet')}
+                    size="small"
+                    sx={{
+                      bgcolor: saleUnit === 'packet' ? '#DC143C' : 'transparent',
+                      color: '#FFFFFF',
+                      borderColor: '#FFFFFF',
+                      '&:hover': { bgcolor: saleUnit === 'packet' ? '#B71C1C' : 'rgba(255, 255, 255, 0.1)' },
+                    }}
+                  >
+                    Paquet ({(selectedProduct.conversionFactor || 20) * Number(selectedProduct.price)} FCFA)
+                  </Button>
+                </Box>
+              </Box>
+            )}
+
             <Typography variant="h5" sx={{ fontWeight: 700, color: '#FFD700', mb: 3 }}>
-              {selectedProduct ? Number(selectedProduct.price).toFixed(0) : '0'} FCFA
+              {selectedProduct ? (
+                saleUnit === 'packet' && selectedProduct.productType === 'cigarette'
+                  ? `${(selectedProduct.conversionFactor || 20) * Number(selectedProduct.price)} FCFA`
+                  : `${Number(selectedProduct.price).toFixed(0)} FCFA`
+              ) : '0'} FCFA
             </Typography>
             <Box
               sx={{
@@ -1387,7 +1988,13 @@ const CreateOrderScreen: React.FC = () => {
               </IconButton>
             </Box>
             <Typography variant="h6" sx={{ fontWeight: 700, mt: 3, color: '#FFFFFF' }}>
-              Total: {((selectedProduct ? Number(selectedProduct.price) : 0) * quantity).toFixed(0)} FCFA
+              Total: {(() => {
+                if (!selectedProduct) return '0';
+                const unitPrice = saleUnit === 'packet' && selectedProduct.productType === 'cigarette'
+                  ? (selectedProduct.conversionFactor || 20) * Number(selectedProduct.price)
+                  : Number(selectedProduct.price);
+                return (unitPrice * quantity).toFixed(0);
+              })()} FCFA
             </Typography>
           </Box>
         </DialogContent>
@@ -1414,6 +2021,33 @@ const CreateOrderScreen: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Supplement Selector Dialog */}
+      {selectedPlatForSupplement && (
+        <SupplementSelector
+          productId={selectedPlatForSupplement.product.id}
+          productName={selectedPlatForSupplement.product.name}
+          onSupplementsSelected={handleAddSupplements}
+          onClose={() => {
+            setOpenSupplementDialog(false);
+            setSelectedPlatForSupplement(null);
+          }}
+          open={openSupplementDialog}
+        />
+      )}
+
+      {/* Nouveau Dialogue de Suppléments */}
+      {selectedProduct && selectedProduct.productType === 'dish' && (
+        <SupplementDialog
+          open={openNewSupplementDialog}
+          product={selectedProduct}
+          onConfirm={handleNewSupplementConfirm}
+          onClose={() => {
+            setOpenNewSupplementDialog(false);
+            setSelectedProduct(null);
+          }}
+        />
+      )}
 
       {/* Add Client Dialog */}
       <Dialog
@@ -1552,6 +2186,45 @@ const CreateOrderScreen: React.FC = () => {
                 </Typography>
               </Box>
               <Divider sx={{ my: 1 }} />
+              
+              {/* Récapitulatif détaillé de la commande */}
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: designTokens.colors.text.primary }}>
+                  Récapitulatif de la commande
+                </Typography>
+                
+                {orderItems.map((item, index) => {
+                  const itemSupplements = orderItemsSupplements[index] || [];
+                  return (
+                    <Box key={index} sx={{ mb: 1, pb: 1, borderBottom: index < orderItems.length - 1 ? '1px solid #F0F0F0' : 'none' }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: '#000000', mb: 0.5 }}>
+                            {item.productName}
+                          </Typography>
+                          
+                          {/* Afficher les suppléments si c'est un plat */}
+                          {itemSupplements.length > 0 && (
+                            <Box sx={{ ml: 2 }}>
+                              <Typography variant="caption" sx={{ color: '#666', fontSize: '0.75rem' }}>
+                                Suppléments: {itemSupplements.map((sup: any) => sup.supplementName).join(', ')}
+                              </Typography>
+                            </Box>
+                          )}
+                        </Box>
+                        
+                        <Box sx={{ textAlign: 'right' }}>
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: '#DC143C' }}>
+                            {item.quantity} × {item.unitPrice && !isNaN(item.unitPrice) ? Number(item.unitPrice).toFixed(0) : '0'} FCFA
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Box>
+                  );
+                })}
+              </Box>
+              
+              <Divider sx={{ my: 2 }} />
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="h6" sx={{ fontWeight: 700, color: designTokens.colors.text.primary }}>
                   Total
@@ -1566,6 +2239,15 @@ const CreateOrderScreen: React.FC = () => {
                   {totalAmount.toFixed(0)} FCFA
                 </Typography>
               </Box>
+              
+              {/* Montant restant à payer */}
+              {paymentMethod === 'cash' && parseInt(paymentAmount) < totalAmount && (
+                <Box sx={{ mt: 2, p: 2, backgroundColor: '#FFF3CD', borderRadius: 2, border: '1px solid #FFE082' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#856404', textAlign: 'center' }}>
+                    Reste à payer : {(totalAmount - parseInt(paymentAmount)).toFixed(0)} FCFA
+                  </Typography>
+                </Box>
+              )}
             </Paper>
 
             {/* Boutons d'action */}

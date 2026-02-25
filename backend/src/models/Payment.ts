@@ -7,7 +7,7 @@ export interface PaymentAttributes {
   id: number;
   orderId: number;
   amount: number;
-  paymentMethod: 'cash' | 'wave';
+  method: 'cash' | 'wave';
   createdBy: number;
   createdAt?: Date;
   updatedAt?: Date;
@@ -19,7 +19,7 @@ class Payment extends Model<PaymentAttributes, PaymentCreationAttributes> implem
   public id!: number;
   public orderId!: number;
   public amount!: number;
-  public paymentMethod!: 'cash' | 'wave';
+  public method!: 'cash' | 'wave';
   public createdBy!: number;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -48,10 +48,9 @@ Payment.init(
       type: DataTypes.INTEGER,
       allowNull: false,
     },
-    paymentMethod: {
+    method: {
       type: DataTypes.ENUM('cash', 'wave'),
       allowNull: false,
-      field: 'payment_method',
     },
     createdBy: {
       type: DataTypes.INTEGER,

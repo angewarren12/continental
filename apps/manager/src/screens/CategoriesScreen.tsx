@@ -41,13 +41,8 @@ import {
   MdLocalBar, MdRestaurant, MdFastfood, MdDining, MdRoomService,
   MdSportsBar, MdCake, MdIcecream, MdLunchDining, MdDinnerDining
 } from 'react-icons/md';
-import {
-  getCategories,
-  createCategory,
-  updateCategory,
-  deleteCategory,
-} from '@shared/api/categories';
-import { Category, CategoryCreationAttributes, DEFAULT_CATEGORIES } from '@shared/types/category';
+import { getCategories, createCategory, updateCategory, deleteCategory } from '@shared/api/categories';
+import { Category, CategoryCreationAttributes } from '@shared/types/category';
 import AnimatedCard from '../components/animations/AnimatedCard';
 import SectionTitle from '../components/ui/SectionTitle';
 import PageTransition from '../components/ui/PageTransition';
@@ -100,8 +95,9 @@ const CategoriesScreen: React.FC = () => {
   const [formData, setFormData] = useState<CategoryCreationAttributes>({
     name: '',
     description: '',
-    icon: '',
+    icon: 'restaurant',
     color: '#bd0f3b',
+    mainCategory: 'food',
   });
   const [openIconPicker, setOpenIconPicker] = useState(false);
 
@@ -126,9 +122,10 @@ const CategoriesScreen: React.FC = () => {
       setEditingCategory(category);
       setFormData({
         name: category.name,
-        description: category.description || '',
-        icon: category.icon || '',
+        description: category.description,
+        icon: category.icon,
         color: category.color || '#bd0f3b',
+        mainCategory: category.mainCategory || 'food',
       });
     } else {
       setEditingCategory(null);
@@ -137,6 +134,7 @@ const CategoriesScreen: React.FC = () => {
         description: '',
         icon: '',
         color: '#bd0f3b',
+        mainCategory: 'food',
       });
     }
     setOpenDialog(true);
@@ -192,26 +190,7 @@ const CategoriesScreen: React.FC = () => {
     }
   };
 
-  const handleSeedDefaultCategories = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      for (const defaultCat of DEFAULT_CATEGORIES) {
-        try {
-          await createCategory(defaultCat);
-        } catch (err) {
-          // Ignorer si la catégorie existe déjà
-        }
-      }
-      await loadCategories();
-    } catch (err: any) {
-      setError(err.message || 'Erreur lors de la création des catégories par défaut');
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  
   return (
     <PageTransition>
       <Box>
@@ -239,23 +218,6 @@ const CategoriesScreen: React.FC = () => {
           </Box>
         </Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          {categories.length === 0 && (
-            <Button
-              variant="outlined"
-              onClick={handleSeedDefaultCategories}
-              disabled={loading}
-              sx={{
-                borderColor: '#bd0f3b',
-                color: '#bd0f3b',
-                '&:hover': {
-                  borderColor: '#8B0000',
-                  bgcolor: 'rgba(189, 15, 59, 0.1)',
-                },
-              }}
-            >
-              Créer les catégories par défaut
-            </Button>
-          )}
         </Box>
 
       {error && (
@@ -302,13 +264,13 @@ const CategoriesScreen: React.FC = () => {
               </Typography>
               <Button
                 variant="contained"
-                onClick={handleSeedDefaultCategories}
+                onClick={() => navigate('/products')}
                 sx={{
                   backgroundColor: '#bd0f3b',
                   '&:hover': { backgroundColor: '#8B0000' },
                 }}
               >
-                Créer les catégories par défaut
+                Créer une catégorie
               </Button>
             </Paper>
           ) : (

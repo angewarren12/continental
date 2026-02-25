@@ -8,6 +8,7 @@ const router = Router();
 // Schémas de validation
 const createCategorySchema = z.object({
   name: z.string().min(1).max(255),
+  mainCategory: z.enum(['food', 'drink', 'service']),
   description: z.string().optional(),
   icon: z.string().optional(),
   color: z.string().regex(/^#[0-9A-F]{6}$/i).optional(),
@@ -15,6 +16,7 @@ const createCategorySchema = z.object({
 
 const updateCategorySchema = z.object({
   name: z.string().min(1).max(255).optional(),
+  mainCategory: z.enum(['food', 'drink', 'service']).optional(),
   description: z.string().optional().nullable(),
   icon: z.string().optional().nullable(),
   color: z.string().regex(/^#[0-9A-F]{6}$/i).optional(),
@@ -29,6 +31,11 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
     
     if (!isManager) {
       where.isActive = true;
+    }
+
+    // Filtrer par mainCategory si fourni
+    if (req.query.mainCategory) {
+      where.mainCategory = req.query.mainCategory;
     }
 
     const categories = await Category.findAll({
@@ -123,7 +130,11 @@ router.put('/:id', authenticate, requireManager, async (req: AuthRequest, res: R
       }
     }
 
-    await category.update(validatedData);
+    await category.update({
+      ...validatedData,
+      description: validatedData.description || undefined,
+      icon: validatedData.icon || undefined,
+    });
     res.json({ category });
   } catch (error) {
     if (error instanceof z.ZodError) {

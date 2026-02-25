@@ -4,6 +4,7 @@ import sequelize from '../config/database';
 export interface CategoryAttributes {
   id: number;
   name: string;
+  mainCategory: 'food' | 'drink' | 'service';
   description?: string;
   icon?: string;
   color: string;
@@ -17,6 +18,7 @@ export interface CategoryCreationAttributes extends Optional<CategoryAttributes,
 class Category extends Model<CategoryAttributes, CategoryCreationAttributes> implements CategoryAttributes {
   public id!: number;
   public name!: string;
+  public mainCategory!: 'food' | 'drink' | 'service';
   public description?: string;
   public icon?: string;
   public color!: string;
@@ -36,6 +38,11 @@ Category.init(
       type: DataTypes.STRING(255),
       allowNull: false,
       unique: true,
+    },
+    mainCategory: {
+      type: DataTypes.ENUM('food', 'drink', 'service'),
+      allowNull: false,
+      field: 'main_category',
     },
     description: {
       type: DataTypes.TEXT,
@@ -78,6 +85,9 @@ Category.init(
       },
       {
         fields: ['name'],
+      },
+      {
+        fields: ['main_category'],
       },
     ],
   }

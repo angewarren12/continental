@@ -14,7 +14,7 @@ export const exportOrderToPDF = (order: Order): void => {
   let yPosition = 20;
   
   // En-tête avec logo et titre
-  doc.setFillColor(...primaryColor);
+  doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
   doc.rect(0, 0, 210, 40, 'F');
   
   doc.setTextColor(255, 255, 255);
@@ -29,7 +29,7 @@ export const exportOrderToPDF = (order: Order): void => {
   yPosition = 50;
   
   // Informations de la commande
-  doc.setTextColor(...textColor);
+  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
   doc.text('Détails de la Commande', 20, yPosition);
@@ -58,8 +58,8 @@ export const exportOrderToPDF = (order: Order): void => {
   if (order.paymentMethod) {
     yPosition += 7;
     const paymentMethodLabel = order.paymentMethod === 'cash' ? 'Espèces' : 
-                               order.paymentMethod === 'card' ? 'Carte bancaire' : 
-                               'Paiement mobile';
+                               order.paymentMethod === 'wave' ? 'Wave' : 
+                               'Autre';
     doc.text(`Méthode de paiement: ${paymentMethodLabel}`, 20, yPosition);
   }
   
@@ -89,7 +89,7 @@ export const exportOrderToPDF = (order: Order): void => {
   
   // Lignes des articles
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(...textColor);
+  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
   
   order.items.forEach((item) => {
     if (yPosition > 250) {
@@ -142,7 +142,7 @@ export const exportOrderToPDF = (order: Order): void => {
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     doc.setFontSize(8);
-    doc.setTextColor(...secondaryTextColor);
+    doc.setTextColor(secondaryTextColor[0], secondaryTextColor[1], secondaryTextColor[2]);
     doc.text(
       `Page ${i} sur ${pageCount} - Le Continental - Généré le ${format(new Date(), 'dd/MM/yyyy à HH:mm', { locale: fr })}`,
       105,

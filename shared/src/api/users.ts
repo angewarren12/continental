@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { User, UserUpdateInput, UserCreateInput } from '../types/user';
+import { User, UserUpdateInput } from '../types/user';
 
 export const getUser = async (userId: number): Promise<User> => {
   const response = await apiClient.get<{ user: User }>(`/users/${userId}`);
@@ -41,7 +41,7 @@ export const createClient = async (clientData: {
   return response.user;
 };
 
-export const updateUserTotalSpent = async (userId: number, amount: number): Promise<void> => {
+export const updateUserTotalSpent = async (_userId: number, _amount: number): Promise<void> => {
   // Cette fonction sera gérée automatiquement par le backend lors de la création de commandes
   // Pas besoin d'appel API séparé
 };
