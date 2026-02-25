@@ -2,10 +2,8 @@
  * Client API REST pour communiquer avec le backend
  */
 
-// @ts-ignore - Vite injects import.meta.env at build time
-const API_BASE_URL = (typeof (globalThis as any).import !== 'undefined' 
-  ? ((globalThis as any).import.meta as any)?.env?.VITE_API_URL 
-  : undefined) || 'http://localhost:3002/api';
+// URL de l'API avec fallback pour le développement
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002/api';
 
 class ApiClient {
   private baseURL: string;
