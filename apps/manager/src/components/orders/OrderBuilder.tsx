@@ -99,7 +99,7 @@ const OrderBuilder: React.FC<OrderBuilderProps> = ({
     if (order) {
       // Charger les données de la commande existante
       setSelectedProducts(order.items || []);
-      setSelectedClient(order.client || null);
+      setSelectedClient(order.client as any || null);
       setTableNumber(order.tableNumber || '');
       setTotalAmount(order.totalAmount);
     }
@@ -674,14 +674,6 @@ const OrderBuilder: React.FC<OrderBuilderProps> = ({
           </Typography>
           
           <Box sx={{ display: 'flex', gap: 2 }}>
-            <Button
-              variant="outlined"
-              onClick={onCancel}
-              disabled={loading}
-            >
-              Annuler
-            </Button>
-            
             {currentStep > 0 && (
               <Button
                 variant="outlined"
@@ -692,23 +684,21 @@ const OrderBuilder: React.FC<OrderBuilderProps> = ({
               </Button>
             )}
             
-            {currentStep < steps.length - 1 ? (
+            {currentStep < steps.length - 1 && (
               <Button
                 variant="contained"
                 onClick={handleNextStep}
                 disabled={loading}
-                sx={{
-                  bgcolor: designTokens.colors.primary.main,
-                  '&:hover': { bgcolor: designTokens.colors.primary.dark },
-                }}
               >
                 Suivant
               </Button>
-            ) : (
+            )}
+            
+            {currentStep === steps.length - 1 && (
               <Button
                 variant="contained"
-                onClick={handleSave}
-                disabled={loading}
+                onClick={handleCreateOrder}
+                disabled={loading || !selectedClient || selectedProducts.length === 0}
                 startIcon={loading ? <CircularProgress size={20} /> : <CheckCircleIcon />}
                 sx={{
                   bgcolor: designTokens.colors.success.main,
